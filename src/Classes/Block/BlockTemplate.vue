@@ -8,16 +8,17 @@
 		maxRows: number;
 		maxCols: number;
 		blocks: { row: number; col: number }[];
+		blockMatrix: number[][];
 	}>();
 
-	const shapeOffsets = [
-		{ r: 0, c: 0 },
-		{ r: 1, c: 0 },
-		{ r: 1, c: 1 }
-	];
+	const shapeOffsets = ref(
+		props.blockMatrix.flatMap((row, r) =>
+			row.map((cell, c) => (cell === 1 || cell === 2) ? { r, c } : null).filter(offset => offset !== null)
+		) as { r: number; c: number }[]
+	);
 
 	function getCells(baseRow: number, baseCol: number) {
-		return shapeOffsets.map(offset => ({
+		return shapeOffsets.value.map(offset => ({
 			row: baseRow + offset.r,
 			col: baseCol + offset.c
 		}));
@@ -45,14 +46,54 @@
 	const isMovingLeft = ref(false);
 	const isMovingRight = ref(false);
 	const isMovingDown = ref(false);
+	const isRotating = ref(false);
 
 	const handleKeyPress = (event: KeyboardEvent) => {
 		if (event.key === 'ArrowLeft' && !controllsOff.value) isMovingLeft.value = true;
 		else if (event.key === 'ArrowRight' && !controllsOff.value) isMovingRight.value = true;
 		if (event.key === 'ArrowDown' && !controllsOff.value) isMovingDown.value = true;
+		if (event.key === 'ArrowUp' && !controllsOff.value){
+			if (shapeOffsets.value.every(offset => {
+				const row = props.blockMatrix[offset.r];
+				return !row || row[offset.c] !== 2;
+			})) return;
+			const pivot = shapeOffsets.value.find((_, i) => {
+				const offset = shapeOffsets.value[i];
+				if (!offset) return false;
+				const row = props.blockMatrix[offset.r];
+				return row && row[offset.c] === 2;
+			}) || { r: 1, c: 1 };
+			const rotatedOffsets = shapeOffsets.value.map(offset => {
+				const dr = offset.r - pivot.r;
+				const dc = offset.c - pivot.c;
 
+				return {
+					r: pivot.r + dc,
+					c: pivot.c - dr
+				};
+			});
+			const canRotate = rotatedOffsets.every(offset => 
+				checkPosition(row.value + offset.r, col.value + offset.c)
+			);
+
+			if (canRotate) {
+				shapeOffsets.value = rotatedOffsets;
+			}
+			else if (checkPosition(row.value, col.value - 1) && rotatedOffsets.every(offset => 
+				checkPosition(row.value + offset.r, col.value - 1 + offset.c)
+			)) {
+				col.value -= 1;
+				shapeOffsets.value = rotatedOffsets;
+			}
+			else if (checkPosition(row.value, col.value + 1) && rotatedOffsets.every(offset => 
+				checkPosition(row.value + offset.r, col.value + 1 + offset.c)
+			)) {
+				col.value += 1;
+				shapeOffsets.value = rotatedOffsets;
+			}
+		}
 		if ((event.code === 'Space' || event.key === ' ') && !controllsOff.value) {
-			fallSpeed.value = 10;
+			fallSpeed.value = 1;
 			controllsOff.value = true;
 		}
 	};
@@ -101,8 +142,8 @@
 				if (isMovingDown.value && canPlace(row.value + 1, col.value)) {
 					row.value += 1;
 				}
+				accumulatedMoveTime = 0;
 			}
-			accumulatedMoveTime = 0;
 		}
 
 		requestAnimationFrame(update);
@@ -132,18 +173,19 @@
 			gridColumn: cell.col
 		}"
 	>
-		<img src="../../../public/favicon.ico" alt="">
 	</div>
 </template>
 
 <style scoped>
 .block {
-    width: 30px;
-    height: 30px;
-    background-color: red;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+	width: 30px;
+	height: 30px;
+	background-color: red;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid rgb(255, 255, 255);
+	border-radius: 6px;
 }
 
 .block img {
