@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import Block from './Classes/Block/Block.vue';
+import Grid from './Classes/GameContainer/Grid.vue';
 
 </script>
 
 <template>
-	<Block />
+	<Grid />
 </template>
 
 <style scoped></style>
