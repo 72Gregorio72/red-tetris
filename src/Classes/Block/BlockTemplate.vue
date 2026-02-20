@@ -1,14 +1,23 @@
 <script setup lang="ts">
-	import { ref, onMounted, onUnmounted } from 'vue';
+	import { ref, onMounted, onUnmounted , watch } from 'vue';
 
 	const row = ref(1);
 	const col = ref(5);
+
+	const controllsOff = ref(false);
+	const moveSpeed = ref(100);
+
+	const isMovingLeft = ref(false);
+	const isMovingRight = ref(false);
+	const isMovingDown = ref(false);
+	const isRotating = ref(false);
 
 	const props = defineProps<{
 		maxRows: number;
 		maxCols: number;
 		blocks: { row: number; col: number }[];
 		blockMatrix: number[][];
+		currentLevel: number;
 	}>();
 
 	const shapeOffsets = ref(
@@ -16,6 +25,15 @@
 			row.map((cell, c) => (cell === 1 || cell === 2) ? { r, c } : null).filter(offset => offset !== null)
 		) as { r: number; c: number }[]
 	);
+
+	function calcFallSpeed(level: number): number {
+		const base = 0.8 - ((level - 1) * 0.007);
+        const powerTo = level - 1;
+        const secondsPerLine = Math.pow(base, powerTo);
+		return secondsPerLine * 1000;
+	}
+
+	const fallSpeed = ref(calcFallSpeed(props.currentLevel));
 
 	function getCells(baseRow: number, baseCol: number) {
 		return shapeOffsets.value.map(offset => ({
@@ -35,18 +53,10 @@
 		return getCells(baseRow, baseCol).every(cell => checkPosition(cell.row, cell.col));
 	}
 
-	const controllsOff = ref(false);
-	const fallSpeed = ref(1000);
-	const moveSpeed = ref(100);
 
 	const emit = defineEmits<{
 		( event: 'landed', payload: { row: number; col: number} ): void;
 	}>();
-
-	const isMovingLeft = ref(false);
-	const isMovingRight = ref(false);
-	const isMovingDown = ref(false);
-	const isRotating = ref(false);
 
 	const handleKeyPress = (event: KeyboardEvent) => {
 		if (event.key === 'ArrowLeft' && !controllsOff.value) isMovingLeft.value = true;
@@ -148,6 +158,17 @@
 
 		requestAnimationFrame(update);
 	}
+
+	function updateGravity() {
+		fallSpeed.value = calcFallSpeed(props.currentLevel);
+	}
+
+	watch(
+		() => props.currentLevel,
+		() => {
+			updateGravity();
+		}
+	);
 
 	onMounted(() => {
 		requestId = requestAnimationFrame(update);

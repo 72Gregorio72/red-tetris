@@ -1,9 +1,13 @@
 <script setup lang="ts">
 	import { ref } from 'vue';
 	import BlockTemplate from '../Block/BlockTemplate.vue';
+	import Player from '../Player/Player.vue';
 
 	const blocks = ref<{ row: number; col: number }[]>([]);
 	const activeBlockId = ref(0);
+
+	const linesCleared = ref(0);
+	const currentLevel = ref(1);
 
 	function handleLanded(payload: { row: number; col: number }) {
 		blocks.value.push({ row: payload.row, col: payload.col });
@@ -61,7 +65,8 @@
 	const gameOver = ref(false);
 
 	function getRandomNumber(min: number, max: number) {
-		return Math.floor(Math.random() * (max - min + 1)) + min;
+		// return Math.floor(Math.random() * (max - min + 1)) + min;
+		return 2;
 	}
 
 	function checkLineClear() {
@@ -72,6 +77,7 @@
 				blocks.value.forEach(b => {
 					if (b.row < r) b.row++;
 				});
+				linesCleared.value++;
 			}
 		}
 		if (checkGameOver() && !gameOver.value) {
@@ -95,6 +101,7 @@
 				:maxCols="10"
 				:blocks="blocks"
 				:blockMatrix="blockTypes[getRandomNumber(0, blockTypes.length - 1)]!"
+				:currentLevel="currentLevel"
 				@landed="(payload) => { handleLanded(payload); spawnNew(); }"
 			/>
 			<h1 v-if="gameOver">Game Over!</h1>
@@ -106,6 +113,10 @@
 			></div>
 		</div>
 	</div>
+	<Player 
+		:linesCleared="linesCleared"
+		@levelUpdated="(payload) => { currentLevel = payload.currentLevel }"
+	/>
 
 </template>
 
