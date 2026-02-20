@@ -8,9 +8,13 @@
 
 	const linesCleared = ref(0);
 	const currentLevel = ref(1);
+	const pointsScored = ref(0);
+	const changeScore = ref(0);
 
-	function handleLanded(payload: { row: number; col: number }) {
-		blocks.value.push({ row: payload.row, col: payload.col });
+	function handleLanded(payload: { row: number; col: number }[]) {
+		for (const cell of payload) {
+			blocks.value.push({ row: cell.row, col: cell.col });
+		}
 		checkLineClear();
 	}
 
@@ -65,25 +69,53 @@
 	const gameOver = ref(false);
 
 	function getRandomNumber(min: number, max: number) {
-		// return Math.floor(Math.random() * (max - min + 1)) + min;
-		return 2;
+		return Math.floor(Math.random() * (max - min + 1)) + min;
 	}
 
 	function checkLineClear() {
+		let linesRemoved = 0;
 		for (let r = 1; r <= 20; r++) {
 			const isLineFull = blocks.value.filter(b => b.row === r).length === 10;
+			console.log(blocks.value.filter(b => b.row === r).length === 10);
 			if (isLineFull) {
+				linesRemoved++;
+				console.log("blocks removed");
 				blocks.value = blocks.value.filter(b => b.row !== r);
 				blocks.value.forEach(b => {
 					if (b.row < r) b.row++;
 				});
 				linesCleared.value++;
+				r--; // ricontrolla la stessa riga, perché quelle sopra sono scese
 			}
 		}
+		console.log("linee cancellate = ", linesRemoved)
+		if (linesRemoved !== 0)
+			calculateScore(linesRemoved);
+
 		if (checkGameOver() && !gameOver.value) {
 			alert("Game Over!");
 			gameOver.value = true;
 		}
+	}
+	
+	function calculateScore(linesRemoved: number) {
+		switch (linesRemoved) {
+			case 1:
+				pointsScored.value = 40;
+				break;
+			case 2:
+				pointsScored.value = 120;
+				break;
+			case 3:
+				pointsScored.value = 300;
+				break;
+			case 4:
+				pointsScored.value = 1200;
+				break;
+			default:
+				break;
+		}
+		changeScore.value++;
 	}
 
 	function checkGameOver() {
@@ -115,6 +147,8 @@
 	</div>
 	<Player 
 		:linesCleared="linesCleared"
+		:pointsScored="pointsScored"
+		:changeScore="changeScore"
 		@levelUpdated="(payload) => { currentLevel = payload.currentLevel }"
 	/>
 

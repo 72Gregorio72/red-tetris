@@ -55,7 +55,7 @@
 
 
 	const emit = defineEmits<{
-		( event: 'landed', payload: { row: number; col: number} ): void;
+		( event: 'landed', payload: { row: number; col: number}[] ): void;
 	}>();
 
 	const handleKeyPress = (event: KeyboardEvent) => {
@@ -132,9 +132,7 @@
 			if (canPlace(row.value + 1, col.value)) {
 				row.value += 1;
 			} else if (!isLanded.value) {
-				for (const cell of getCells(row.value, col.value)) {
-					emit('landed', { row: cell.row, col: cell.col });
-				}
+				emit('landed', getCells(row.value, col.value));
 				isLanded.value = true;
 				controllsOff.value = true;
 			}

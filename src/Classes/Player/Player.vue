@@ -1,17 +1,16 @@
-<!-- 1)fare i livelli -->
- <!-- 2) fare punteggio -->
-<!-- 3) calcolare numero di spazi che percorre il blocco con soft e hard drop cosi da molt il punteggio corrente -->
-
+<!-- 2) fare punteggio -->
 
 <script setup lang="ts">
-	import { ref , watch , defineEmits } from 'vue';
+	import { ref , watch } from 'vue';
 
 	const playerName = ref('Player 1');
 	const score = ref(0);
 	const level = ref(1);
 
 	const props = defineProps<{
-		linesCleared: number
+		linesCleared: number;
+		pointsScored: number;
+		changeScore: number;
 	}>();
 
 
@@ -27,10 +26,23 @@
 		}
 	}
 
+	function updateScore() {
+		console.log("score prima = ", score.value);
+		score.value = score.value + (props.pointsScored * level.value);
+		console.log("score dopo = ", score.value);
+	}
+
 	watch(
 		() => props.linesCleared,
 		() => {
 			updateLevel();
+		}
+	);
+
+	watch(
+		() => props.changeScore,
+		() => {
+			updateScore();
 		}
 	);
 
