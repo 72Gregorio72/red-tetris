@@ -20,12 +20,4 @@ function startGame() {
 
 <style>
 
-.title {
-	padding-left: 45%;
-	transition: cubic-bezier();
-}
-
-.button-container{
-	padding-left: 50%;
-}
 </style>
