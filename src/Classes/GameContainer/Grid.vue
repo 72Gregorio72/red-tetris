@@ -1,15 +1,21 @@
 <script setup lang="ts">
 	import { ref } from 'vue';
 	import BlockTemplate from '../Block/BlockTemplate.vue';
-	import Player from '../Player/Player.vue';
 
 	const blocks = ref<{ row: number; col: number }[]>([]);
 	const activeBlockId = ref(0);
 
 	const linesCleared = ref(0);
-	const currentLevel = ref(1);
-	const pointsScored = ref(0);
-	const changeScore = ref(0);
+
+	const props = withDefaults(defineProps<{
+		currentLevel?: number;
+	}>(), {
+		currentLevel: 1,
+	});
+
+	const emit = defineEmits<{
+		( event: 'clearedLines', payload: { linesCleared: number; linesRemoved: number} ): void;
+	}>();
 
 	function handleLanded(payload: { row: number; col: number }[]) {
 		for (const cell of payload) {
@@ -69,7 +75,8 @@
 	const gameOver = ref(false);
 
 	function getRandomNumber(min: number, max: number) {
-		return Math.floor(Math.random() * (max - min + 1)) + min;
+		// return Math.floor(Math.random() * (max - min + 1)) + min;
+		return 2;
 	}
 
 	function checkLineClear() {
@@ -85,42 +92,23 @@
 					if (b.row < r) b.row++;
 				});
 				linesCleared.value++;
-				r--; // ricontrolla la stessa riga, perché quelle sopra sono scese
+				r--;
 			}
 		}
-		console.log("linee cancellate = ", linesRemoved)
 		if (linesRemoved !== 0)
-			calculateScore(linesRemoved);
+			emit('clearedLines', {linesCleared: linesCleared.value, linesRemoved: linesRemoved})
+			// calculateScore(linesRemoved);
 
 		if (checkGameOver() && !gameOver.value) {
 			alert("Game Over!");
 			gameOver.value = true;
 		}
 	}
-	
-	function calculateScore(linesRemoved: number) {
-		switch (linesRemoved) {
-			case 1:
-				pointsScored.value = 40;
-				break;
-			case 2:
-				pointsScored.value = 120;
-				break;
-			case 3:
-				pointsScored.value = 300;
-				break;
-			case 4:
-				pointsScored.value = 1200;
-				break;
-			default:
-				break;
-		}
-		changeScore.value++;
-	}
 
 	function checkGameOver() {
 		return blocks.value.some(b => b.row === 1);
 	}
+
 </script>
 
 <template>
@@ -133,7 +121,7 @@
 				:maxCols="10"
 				:blocks="blocks"
 				:blockMatrix="blockTypes[getRandomNumber(0, blockTypes.length - 1)]!"
-				:currentLevel="currentLevel"
+				:currentLevel="props.currentLevel"
 				@landed="(payload) => { handleLanded(payload); spawnNew(); }"
 			/>
 			<h1 v-if="gameOver">Game Over!</h1>
@@ -145,12 +133,9 @@
 			></div>
 		</div>
 	</div>
-	<Player 
+	<!-- <Player 
 		:linesCleared="linesCleared"
-		:pointsScored="pointsScored"
-		:changeScore="changeScore"
-		@levelUpdated="(payload) => { currentLevel = payload.currentLevel }"
-	/>
+	/> -->
 
 </template>
 
