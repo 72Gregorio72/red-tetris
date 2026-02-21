@@ -9,8 +9,18 @@
 
 	const props = withDefaults(defineProps<{
 		currentLevel?: number;
+		isMovingLeft?: boolean;
+		isMovingRight?: boolean;
+		isMovingDown?: boolean;
+		isRotate?: boolean;
+		isHardDrop?: boolean;
 	}>(), {
 		currentLevel: 1,
+		isMovingLeft: false,
+		isMovingRight: false,
+		isMovingDown: false,
+		isRotate: false,
+		isHardDrop: false,
 	});
 
 	const emit = defineEmits<{
@@ -122,6 +132,11 @@
 				:blocks="blocks"
 				:blockMatrix="blockTypes[getRandomNumber(0, blockTypes.length - 1)]!"
 				:currentLevel="props.currentLevel"
+				:isMovingLeft ="props.isMovingLeft"
+				:isMovingRight ="props.isMovingRight"
+				:isMovingDown ="props.isMovingDown"
+				:isRotate ="props.isRotate"
+				:isHardDrop ="props.isHardDrop"
 				@landed="(payload) => { handleLanded(payload); spawnNew(); }"
 			/>
 			<h1 v-if="gameOver">Game Over!</h1>
@@ -133,10 +148,6 @@
 			></div>
 		</div>
 	</div>
-	<!-- <Player 
-		:linesCleared="linesCleared"
-	/> -->
-
 </template>
 
 <style scoped>
