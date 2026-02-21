@@ -1,5 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import App from '../App.vue'
+import MainMenu from '../views/MainMenu.vue'
+import GameView from '../views/GameView.vue'
+
+// per aggiungere pagina metti import del component e aggiungi il resto dentro al routes: qua sotto
+// poi metti bottono che chiama funzione con dentro il push del path sul router
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -7,7 +11,12 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      component: App,
+      component: MainMenu,
+    },
+    {
+      path: '/game',
+      name: 'game',
+      component: GameView,
     },
   ],
 })
