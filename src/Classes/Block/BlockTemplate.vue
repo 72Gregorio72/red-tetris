@@ -1,14 +1,24 @@
 <script setup lang="ts">
-	import { ref, onMounted, onUnmounted } from 'vue';
+	import { ref, onMounted, onUnmounted , watch } from 'vue';
+	import { motion } from "motion-v"
 
 	const row = ref(1);
 	const col = ref(5);
+
+	const controllsOff = ref(false);
+	const moveSpeed = ref(100);
 
 	const props = defineProps<{
 		maxRows: number;
 		maxCols: number;
 		blocks: { row: number; col: number }[];
 		blockMatrix: number[][];
+		currentLevel: number;
+		isMovingLeft: boolean;
+		isMovingRight: boolean;
+		isMovingDown: boolean;
+		isRotate: boolean;
+		isHardDrop: boolean;
 	}>();
 
 	const shapeOffsets = ref(
@@ -16,6 +26,15 @@
 			row.map((cell, c) => (cell === 1 || cell === 2) ? { r, c } : null).filter(offset => offset !== null)
 		) as { r: number; c: number }[]
 	);
+
+	function calcFallSpeed(level: number): number {
+		const base = 0.8 - ((level - 1) * 0.007);
+        const powerTo = level - 1;
+        const secondsPerLine = Math.pow(base, powerTo);
+		return secondsPerLine * 1000;
+	}
+
+	const fallSpeed = ref(calcFallSpeed(props.currentLevel));
 
 	function getCells(baseRow: number, baseCol: number) {
 		return shapeOffsets.value.map(offset => ({
@@ -35,74 +54,63 @@
 		return getCells(baseRow, baseCol).every(cell => checkPosition(cell.row, cell.col));
 	}
 
-	const controllsOff = ref(false);
-	const fallSpeed = ref(1000);
-	const moveSpeed = ref(100);
 
 	const emit = defineEmits<{
-		( event: 'landed', payload: { row: number; col: number} ): void;
+		( event: 'landed', payload: { row: number; col: number}[] ): void;
 	}>();
 
-	const isMovingLeft = ref(false);
-	const isMovingRight = ref(false);
-	const isMovingDown = ref(false);
-	const isRotating = ref(false);
+	function rotateBlock() {
+		if (controllsOff.value) return;
+		
+		if (shapeOffsets.value.every(offset => {
+			const row = props.blockMatrix[offset.r];
+			return !row || row[offset.c] !== 2;
+		})) return;
+		
+		const pivot = shapeOffsets.value.find((_, i) => {
+			const offset = shapeOffsets.value[i];
+			if (!offset) return false;
+			const row = props.blockMatrix[offset.r];
+			return row && row[offset.c] === 2;
+		}) || { r: 1, c: 1 };
+		
+		const rotatedOffsets = shapeOffsets.value.map(offset => {
+			const dr = offset.r - pivot.r;
+			const dc = offset.c - pivot.c;
 
-	const handleKeyPress = (event: KeyboardEvent) => {
-		if (event.key === 'ArrowLeft' && !controllsOff.value) isMovingLeft.value = true;
-		else if (event.key === 'ArrowRight' && !controllsOff.value) isMovingRight.value = true;
-		if (event.key === 'ArrowDown' && !controllsOff.value) isMovingDown.value = true;
-		if (event.key === 'ArrowUp' && !controllsOff.value){
-			if (shapeOffsets.value.every(offset => {
-				const row = props.blockMatrix[offset.r];
-				return !row || row[offset.c] !== 2;
-			})) return;
-			const pivot = shapeOffsets.value.find((_, i) => {
-				const offset = shapeOffsets.value[i];
-				if (!offset) return false;
-				const row = props.blockMatrix[offset.r];
-				return row && row[offset.c] === 2;
-			}) || { r: 1, c: 1 };
-			const rotatedOffsets = shapeOffsets.value.map(offset => {
-				const dr = offset.r - pivot.r;
-				const dc = offset.c - pivot.c;
+			return {
+				r: pivot.r + dc,
+				c: pivot.c - dr
+			};
+		});
+		
+		const canRotate = rotatedOffsets.every(offset => 
+			checkPosition(row.value + offset.r, col.value + offset.c)
+		);
 
-				return {
-					r: pivot.r + dc,
-					c: pivot.c - dr
-				};
-			});
-			const canRotate = rotatedOffsets.every(offset => 
-				checkPosition(row.value + offset.r, col.value + offset.c)
-			);
-
-			if (canRotate) {
-				shapeOffsets.value = rotatedOffsets;
-			}
-			else if (checkPosition(row.value, col.value - 1) && rotatedOffsets.every(offset => 
-				checkPosition(row.value + offset.r, col.value - 1 + offset.c)
-			)) {
-				col.value -= 1;
-				shapeOffsets.value = rotatedOffsets;
-			}
-			else if (checkPosition(row.value, col.value + 1) && rotatedOffsets.every(offset => 
-				checkPosition(row.value + offset.r, col.value + 1 + offset.c)
-			)) {
-				col.value += 1;
-				shapeOffsets.value = rotatedOffsets;
-			}
+		if (canRotate) {
+			shapeOffsets.value = rotatedOffsets;
 		}
-		if ((event.code === 'Space' || event.key === ' ') && !controllsOff.value) {
-			fallSpeed.value = 1;
-			controllsOff.value = true;
+		else if (checkPosition(row.value, col.value - 1) && rotatedOffsets.every(offset => 
+			checkPosition(row.value + offset.r, col.value - 1 + offset.c)
+		)) {
+			col.value -= 1;
+			shapeOffsets.value = rotatedOffsets;
 		}
-	};
+		else if (checkPosition(row.value, col.value + 1) && rotatedOffsets.every(offset => 
+			checkPosition(row.value + offset.r, col.value + 1 + offset.c)
+		)) {
+			col.value += 1;
+			shapeOffsets.value = rotatedOffsets;
+		}
+	}
 
-	const handleKeyUp = (event: KeyboardEvent) => {
-		if (event.key === 'ArrowLeft') isMovingLeft.value = false;
-		if (event.key === 'ArrowRight') isMovingRight.value = false;
-		if (event.key === 'ArrowDown') isMovingDown.value = false;
-	};
+	function activateHardDrop() {
+		if (controllsOff.value) return;
+		fallSpeed.value = 1;
+		controllsOff.value = true;
+	}
+
 
 	const isLanded = ref(false);
 
@@ -122,9 +130,7 @@
 			if (canPlace(row.value + 1, col.value)) {
 				row.value += 1;
 			} else if (!isLanded.value) {
-				for (const cell of getCells(row.value, col.value)) {
-					emit('landed', { row: cell.row, col: cell.col });
-				}
+				emit('landed', getCells(row.value, col.value));
 				isLanded.value = true;
 				controllsOff.value = true;
 			}
@@ -133,32 +139,56 @@
 
 		if (accumulatedMoveTime >= moveSpeed.value) {
 			if (!isLanded.value && !controllsOff.value) {
-				if (isMovingLeft.value && canPlace(row.value, col.value - 1)) {
+				if (props.isMovingLeft && canPlace(row.value, col.value - 1)) {
 					col.value -= 1;
 				}
-				if (isMovingRight.value && canPlace(row.value, col.value + 1)) {
+				if (props.isMovingRight && canPlace(row.value, col.value + 1)) {
 					col.value += 1;
 				}
-				if (isMovingDown.value && canPlace(row.value + 1, col.value)) {
+				if (props.isMovingDown && canPlace(row.value + 1, col.value)) {
 					row.value += 1;
 				}
 				accumulatedMoveTime = 0;
 			}
 		}
-
 		requestAnimationFrame(update);
 	}
 
+	function updateGravity() {
+		fallSpeed.value = calcFallSpeed(props.currentLevel);
+	}
+
+	watch(
+		() => props.isRotate,
+		(newValue, oldValue) => {
+			if (newValue && !oldValue) {
+				rotateBlock();
+			}
+		}
+	);
+
+	watch(
+		() => props.isHardDrop,
+		(newValue, oldValue) => {
+			if (newValue && !oldValue) {
+				activateHardDrop();
+			}
+		}
+	);
+
+	watch(
+		() => props.currentLevel,
+		() => {
+			updateGravity();
+		},
+	);
+
 	onMounted(() => {
 		requestId = requestAnimationFrame(update);
-		window.addEventListener('keydown', handleKeyPress);
-		window.addEventListener('keyup', handleKeyUp);
 	});
 
 	onUnmounted(() => {
 		cancelAnimationFrame(requestId);
-		window.removeEventListener('keydown', handleKeyPress);
-		window.removeEventListener('keyup', handleKeyUp);
 	});
 
 </script>

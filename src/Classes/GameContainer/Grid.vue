@@ -5,8 +5,32 @@
 	const blocks = ref<{ row: number; col: number }[]>([]);
 	const activeBlockId = ref(0);
 
-	function handleLanded(payload: { row: number; col: number }) {
-		blocks.value.push({ row: payload.row, col: payload.col });
+	const linesCleared = ref(0);
+
+	const props = withDefaults(defineProps<{
+		currentLevel?: number;
+		isMovingLeft?: boolean;
+		isMovingRight?: boolean;
+		isMovingDown?: boolean;
+		isRotate?: boolean;
+		isHardDrop?: boolean;
+	}>(), {
+		currentLevel: 1,
+		isMovingLeft: false,
+		isMovingRight: false,
+		isMovingDown: false,
+		isRotate: false,
+		isHardDrop: false,
+	});
+
+	const emit = defineEmits<{
+		( event: 'clearedLines', payload: { linesCleared: number; linesRemoved: number} ): void;
+	}>();
+
+	function handleLanded(payload: { row: number; col: number }[]) {
+		for (const cell of payload) {
+			blocks.value.push({ row: cell.row, col: cell.col });
+		}
 		checkLineClear();
 	}
 
@@ -61,19 +85,30 @@
 	const gameOver = ref(false);
 
 	function getRandomNumber(min: number, max: number) {
-		return Math.floor(Math.random() * (max - min + 1)) + min;
+		// return Math.floor(Math.random() * (max - min + 1)) + min;
+		return 2;
 	}
 
 	function checkLineClear() {
+		let linesRemoved = 0;
 		for (let r = 1; r <= 20; r++) {
 			const isLineFull = blocks.value.filter(b => b.row === r).length === 10;
+			console.log(blocks.value.filter(b => b.row === r).length === 10);
 			if (isLineFull) {
+				linesRemoved++;
+				console.log("blocks removed");
 				blocks.value = blocks.value.filter(b => b.row !== r);
 				blocks.value.forEach(b => {
 					if (b.row < r) b.row++;
 				});
+				linesCleared.value++;
+				r--;
 			}
 		}
+		if (linesRemoved !== 0)
+			emit('clearedLines', {linesCleared: linesCleared.value, linesRemoved: linesRemoved})
+			// calculateScore(linesRemoved);
+
 		if (checkGameOver() && !gameOver.value) {
 			alert("Game Over!");
 			gameOver.value = true;
@@ -83,6 +118,7 @@
 	function checkGameOver() {
 		return blocks.value.some(b => b.row === 1);
 	}
+
 </script>
 
 <template>
@@ -95,6 +131,12 @@
 				:maxCols="10"
 				:blocks="blocks"
 				:blockMatrix="blockTypes[getRandomNumber(0, blockTypes.length - 1)]!"
+				:currentLevel="props.currentLevel"
+				:isMovingLeft ="props.isMovingLeft"
+				:isMovingRight ="props.isMovingRight"
+				:isMovingDown ="props.isMovingDown"
+				:isRotate ="props.isRotate"
+				:isHardDrop ="props.isHardDrop"
 				@landed="(payload) => { handleLanded(payload); spawnNew(); }"
 			/>
 			<h1 v-if="gameOver">Game Over!</h1>
@@ -106,7 +148,6 @@
 			></div>
 		</div>
 	</div>
-
 </template>
 
 <style scoped>
