@@ -1,6 +1,5 @@
 <script setup lang="ts">
 	import { ref, onMounted, onUnmounted , watch } from 'vue';
-	import { motion } from "motion-v"
 
 	const row = ref(1);
 	const col = ref(5);
