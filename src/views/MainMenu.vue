@@ -1,26 +1,28 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
-
-const router = useRouter();
-
-function startGame(path: string) {
-	router.push(path);
-}
+import Logo from '@/Style/Logo.vue';
+import Buttons from '../Style/Buttons.vue';
 
 </script>
 
 <template>
+	<Logo />
+	<Buttons />
 	<div class="menu-container">
-		<h1 class="title">RED TETRIS</h1>
-		<div class="button-container">
-			<button class="menu-button" @click="startGame('/game')">Play</button>
-		</div>
-		<div class="button-container">
-			<button class="menu-button" @click="startGame('/lobby')">Multiplayer</button>
-		</div>
+		<!-- <h1 class="title">RED TETRIS</h1> -->
 	</div>
 </template>
 
-<style>
+<style scoped>
+
+.menu-container {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	height: 100%;
+}
+
 
 </style>
