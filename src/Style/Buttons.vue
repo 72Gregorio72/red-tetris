@@ -13,7 +13,10 @@ function startGame(path: string) {
 <template>
 	<div class="button-container">
 		<button class="play-button" @click="startGame('/game')">
-			<img src="../../public/asset/play_button.png" alt="gioca" class="button-image"/>
+			<img src="../../public/asset/play_button.png" alt="gioca" class="play-image"/>
+		</button>
+		<button class="multi-button" @click="startGame('/lobby')">
+				<img src="../../public/asset/multiplayer_button.png" alt="gioca" class="multiplayer-image"/>
 		</button>
 	</div>
 </template>
@@ -36,7 +39,7 @@ function startGame(path: string) {
 	width: 250px;
 }
 
-.button-image {
+.play-image {
 	display: flex;
 	width: 100%;
 }
@@ -47,6 +50,14 @@ function startGame(path: string) {
 
 .play-button:active {
     transform: scale(0.95);
+}
+
+.multi-button {
+	display:flex;
+	background: none;
+	border: none;
+	cursor: pointer;
+	width: 250px;
 }
 
 </style>
