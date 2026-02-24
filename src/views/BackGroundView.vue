@@ -14,7 +14,6 @@ import { ref, onMounted, onUnmounted } from 'vue'
 <template>
 	<div class="tetris-bg">
 		<div class="grid-pattern"></div>
-
 		<div class="bg-content">
 			<slot />
 		</div>

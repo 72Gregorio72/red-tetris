@@ -24,8 +24,8 @@ onMounted(() => {
 	justify-content: center;
 	align-items: center;
 	opacity: 0;
-	transform: translateY(-500px);
-	transition:opacity 1s ease, transform 1s ease
+	transform: translateY(-200px);
+	transition:opacity 4s steps(10), transform 4s steps(10)
 }
 
 .title-container.title-visible {

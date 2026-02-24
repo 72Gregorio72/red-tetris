@@ -57,14 +57,12 @@ function startGame() {
 
 <template>
   <div class="lobby">
-    <!-- STATO 1: Non registrato — inserisci il nome -->
     <div v-if="!player" class="register-section">
       <h2>Enter your name</h2>
       <input v-model="playerName" placeholder="Player name" @keyup.enter="register" />
       <button @click="register">Join</button>
     </div>
 
-    <!-- STATO 2: Registrato, fuori da room -->
     <div v-else-if="!currentRoom" class="rooms-section">
       <h2>Welcome, {{ player?.name }}</h2>
 
@@ -90,7 +88,6 @@ function startGame() {
       <button @click="multiplayer.fetchRooms()">Refresh</button>
     </div>
 
-    <!-- STATO 3: Dentro una room -->
     <div v-else class="room-section">
       <h2>Room: {{ currentRoom.name }}</h2>
 
