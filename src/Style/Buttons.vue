@@ -49,5 +49,4 @@ function startGame(path: string) {
     transform: scale(0.95);
 }
 
-
 </style>
