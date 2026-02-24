@@ -115,11 +115,11 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 			if (p.isPlatformer) {
 				engine.state.platformerChar = {
 					x: 5,
-					y: 0,
+					y: 10,
 					vx: 0,
 					vy: 0,
 					isGrounded: false,
-					shape: [{ dx: 0, dy: 0 }, { dx: 0, dy: -1 }]
+					shape: [{ dx: 0, dy: 0 }]
 				};
 			}
 
@@ -150,21 +150,34 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 				const engine = playerEngines.get(p.id);
 				if (!engine || !engine.state.isAlive) return;
 
-				if (p.isPlatformer) {
-					const moved = updatePlatformerPhysics(engine, p);
-					if (moved) globalStateChanged = true;
-				} else {
-					const lastFall = playerLastFall.get(p.id) || now;
-					if (now - lastFall > engine.getFallInterval()) {
-						const result = engine.applyAction('down');
-						playerLastFall.set(p.id, now);
-						globalStateChanged = true;
+				const lastFall = playerLastFall.get(p.id) || now;
+				const fallInterval = engine.getFallInterval();
 
+				if (now - lastFall > fallInterval) {
+					if (p.isPlatformer) {
+						const char = engine.state.platformerChar;
+						if (char) {
+							const nextY = char.y + 1;
+							if (!checkCollision(engine, char.x, nextY)) {
+								char.y = nextY;
+							} else {
+								char.isGrounded = true;
+							}
+						}
+					} else {
+						const result = engine.applyAction('down');
 						if (result.locked) {
 							engine.spawnPiece(playerGenerators.get(p.id)!.next());
 							handlePenaltyLogic(result.linesCleared, p, room);
 						}
 					}
+					playerLastFall.set(p.id, now);
+					globalStateChanged = true;
+				}
+
+				if (p.isPlatformer) {
+					const moved = updatePlatformerPhysics(engine, p);
+					if (moved) globalStateChanged = true;
 				}
 			});
 
@@ -244,8 +257,19 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 				if (canMoveTo(engine, char.x + 1, char.y)) char.x++;
 				break;
 			case 'rotate':
-				if (isOnGround(engine, char)) char.velocityY = -2;
+				jump();
 				break;
+		}
+	}
+
+	function jump() {
+		const engine = playerEngines.get(socket.id);
+		const char = engine?.state.platformerChar;
+		
+		if (char && checkCollision(engine, char.x, char.y + 1)) { 
+			console.log('Jump!');
+			char.vy = -1; 
+			char.isGrounded = false;
 		}
 	}
 
@@ -267,28 +291,27 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		const char = engine.state.platformerChar;
 		if (!char) return false;
 
-		const nextY = char.y + char.vy;
-		const nextX = char.x + char.vx;
-
 		let hasMoved = false;
 
-		if (checkCollision(engine, char.x, nextY)) {
-			if (char.vy > 0) char.isGrounded = true;
-			char.vy = 0;
-		} else {
-			char.y = nextY;
-			char.isGrounded = false;
+		if (char.vy < 0) {
+			const nextY = char.y + char.vy;
+			if (!checkCollision(engine, char.x, nextY)) {
+				char.y = nextY;
+				char.isGrounded = false;
+				hasMoved = true;
+				char.vy += 0.2; 
+				if (char.vy > 0) char.vy = 0;
+			} else {
+				char.vy = 0;
+			}
+		}
+
+		if (isSqueezed(engine, char)) {
+			engine.state.isAlive = false;
 			hasMoved = true;
 		}
 
-		if (!checkCollision(engine, nextX, char.y)) {
-			char.x = nextX;
-			if (char.vx !== 0) hasMoved = true;
-		}
-		
-		char.vx *= 0.8;
-
-		if (char.y > 20 || isSqueezed(engine, char)) {
+		if (char.y >= 20) {
 			engine.state.isAlive = false;
 			hasMoved = true;
 		}
@@ -298,17 +321,18 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 
 	function checkCollision(engine: any, x: number, y: number): boolean {
 		const char = engine.state.platformerChar;
-		if (char && char.shape) {
-			return char.shape.some((part: any) => {
-				const gridX = Math.floor(x + part.dx);
-				const gridY = Math.floor(y + part.dy);
-				
-				if (gridX < 0 || gridX >= 10 || gridY >= 20) return true;
-				if (gridY < 0) return false;
-				return engine.state.grid[gridY][gridX] !== 0;
-			});
-		}
-		return engine.state.grid[Math.floor(y)][Math.floor(x)] !== 0;
+		if (!char || !char.shape) return false;
+
+		return char.shape.some((part: any) => {
+			const gridX = Math.floor(x + part.dx);
+			const gridY = Math.floor(y + part.dy);
+			
+			if (gridX < 0 || gridX >= 10) return true;
+			if (gridY >= 20) return true;
+			if (gridY < 0) return false;
+
+			return engine.state.grid[gridY][gridX] !== 0;
+		});
 	}
 
 	function isSqueezed(engine: GameEngine, char: any): boolean {
