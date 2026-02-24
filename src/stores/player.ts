@@ -1,6 +1,14 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import type { IPlayer } from '../../server/types/player';
+
+export interface IPlayer {
+	id: string;
+	name: string;
+	score: number;
+	isConnected: boolean;
+	isAlive: boolean;
+	isReady: boolean;
+}
 
 export const usePlayerStore = defineStore('player', () => {
 	const player = ref<IPlayer | null>(null);

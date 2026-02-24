@@ -1,5 +1,7 @@
 import type { Server, Socket } from 'socket.io';
 import type { IPlayer } from '../types/player';
+import { GameEngine, type Action } from '../game/GameEngine';
+import { PieceGenerator } from '../game/PieceGenerator';
 import {
 	createRoom,
 	joinRoom,
@@ -8,14 +10,15 @@ import {
 	getRoomList,
 } from '../game/RoomManager';
 
-// Mappa socketId -> IPlayer per tenere traccia dei giocatori connessi
 const players = new Map<string, IPlayer>();
+const roomGameLoops = new Map<string, NodeJS.Timeout>();
+const playerEngines = new Map<string, GameEngine>();
+const playerGenerators = new Map<string, PieceGenerator>();
+const playerLastFall = new Map<string, number>();
 
 export function registerSocketHandlers(io: Server, socket: Socket) {
 	console.log(`[Socket] Client connected: ${socket.id}`);
 
-	// ─── player:register ─────────────────────────────────────────
-	// Il client invia { name } per registrarsi
 	socket.on('player:register', ({ name }: { name: string }) => {
 		const player: IPlayer = {
 			id: socket.id,
@@ -28,38 +31,29 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		players.set(socket.id, player);
 		console.log(`[Socket] Player registered: ${name} (${socket.id})`);
 
-		// Conferma al client con i suoi dati
 		socket.emit('player:registered', player);
 	});
 
-	// ─── room:list ───────────────────────────────────────────────
-	// Il client chiede la lista delle room
 	socket.on('room:list', () => {
 		socket.emit('room:list', getRoomList());
 	});
 
-	// ─── room:create ─────────────────────────────────────────────
-	// Il client crea una room con { name }
 	socket.on('room:create', ({ name }: { name: string }) => {
 		const player = players.get(socket.id);
 		console.log(`[Socket] ${player?.name} is creating a room with name: ${name}`);
 		if (!player) return;
 
 		const room = createRoom(name, player);
-		socket.join(room.id); // Entra nella "stanza" Socket.io
+		socket.join(room.id);
 
 		console.log(`[Socket] Room created: ${room.name} by ${player.name}`);
 
-		// Conferma al creatore
 		socket.emit('room:joined', room);
 
-		// Aggiorna la lista room per tutti
 		io.emit('room:list', getRoomList());
 		console.log('Current rooms:');
 	});
 
-	// ─── room:join ───────────────────────────────────────────────
-	// Il client entra in una room esistente con { roomId }
 	socket.on('room:join', ({ roomId }: { roomId: string }) => {
 		const player = players.get(socket.id);
 		if (!player) return;
@@ -73,22 +67,17 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		socket.join(room.id);
 		console.log(`[Socket] ${player.name} joined room ${room.name}`);
 
-		// Conferma al giocatore
 		socket.emit('room:joined', room);
 
-		// Notifica tutti nella room che la lista giocatori è cambiata
 		io.to(room.id).emit('room:players_updated', room.players);
 
-		// Aggiorna la lista room per tutti
 		io.emit('room:list', getRoomList());
 	});
 
-	// ─── room:leave ──────────────────────────────────────────────
 	socket.on('room:leave', () => {
 		handleLeaveRoom(io, socket);
 	});
 
-	// ─── player:ready ────────────────────────────────────────────
 	socket.on('player:ready', ({ isReady }: { isReady: boolean }) => {
 		const player = players.get(socket.id);
 		if (!player) return;
@@ -98,41 +87,138 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		const room = getRoomByPlayer(socket.id);
 		if (!room) return;
 
-		// Aggiorna tutti nella room
 		io.to(room.id).emit('room:players_updated', room.players);
 	});
 
-	// ─── game:start ──────────────────────────────────────────────
-	// Solo l'host può avviare la partita
 	socket.on('game:start', () => {
 		const room = getRoomByPlayer(socket.id);
 		if (!room) return;
-		if (room.host.id !== socket.id) return; // Solo l'host
+		if (room.host.id !== socket.id) return;
 
 		console.log(`[Socket] Game starting in room ${room.name}`);
+		const seed = Math.random().toString(36).substring(2, 15);
 
-		// Notifica tutti nella room
-		io.to(room.id).emit('game:start');
+		const generator = new PieceGenerator();
+		room.players.forEach(p => {
+			const engine = new GameEngine();
+			engine.spawnPiece(generator.next());
+			playerEngines.set(p.id, engine);
+			playerGenerators.set(p.id, generator);
+			playerLastFall.set(p.id, Date.now());
+		});
 
-		// Aggiorna la lista room (stato cambiato)
+		io.to(room.id).emit('game:start', { seed });
+
+		const initialState = room.players.map(p => {
+            const engine = playerEngines.get(p.id);
+            return {
+                id: p.id,
+                state: engine?.state,
+                displayGrid: engine?.getGridWithPiece() 
+            };
+        });
+        io.to(room.id).emit('game:state_update', initialState);
+
+		if (roomGameLoops.has(room.id)) clearInterval(roomGameLoops.get(room.id));
+		
+		const loopId = setInterval(() => {
+			const now = Date.now();
+			let stateChanged = false;
+
+			room.players.forEach(p => {
+				const engine = playerEngines.get(p.id);
+				const lastFall = playerLastFall.get(p.id) || now;
+
+				if (engine && engine.state.isAlive) {
+					if (now - lastFall > engine.getFallInterval()) {
+						const result = engine.applyAction('down');
+						playerLastFall.set(p.id, now);
+						stateChanged = true;
+
+						if (result.locked) {
+							const gen = playerGenerators.get(p.id)!;
+							engine.spawnPiece(gen.next());
+							
+							if (result.linesCleared >= 2) {
+								const penaltyLines = result.linesCleared - 1;
+								room.players.forEach(target => {
+									if (target.id !== p.id) {
+										const targetEngine = playerEngines.get(target.id);
+										if (targetEngine && targetEngine.state.isAlive) {
+											targetEngine.addPenaltyLines(penaltyLines);
+										}
+									}
+								});
+							}
+						}
+					}
+				}
+			});
+
+			if (stateChanged) {
+                const roomState = room.players.map(p => {
+                    const engine = playerEngines.get(p.id);
+                    return {
+                        id: p.id,
+                        state: engine?.state,
+                        displayGrid: engine?.getGridWithPiece()
+                    };
+                });
+                io.to(room.id).emit('game:state_update', roomState);
+            }
+
+		}, 1000 / 30);
+
+		roomGameLoops.set(room.id, loopId);
 		io.emit('room:list', getRoomList());
 	});
 
-	// ─── game:grid_update ────────────────────────────────────────
-	// Un giocatore manda la propria griglia aggiornata
+	socket.on('game:action', ({ action }: { action: Action }) => {
+		const engine = playerEngines.get(socket.id);
+		const room = getRoomByPlayer(socket.id);
+		if (!engine || !room || !engine.state.isAlive) return;
+
+		const result = engine.applyAction(action);
+        
+		console.log(`[Socket] Action applied: ${action}`);
+		if (result.locked) {
+			const gen = playerGenerators.get(socket.id)!;
+			engine.spawnPiece(gen.next());
+			if (result.linesCleared >= 2) {
+				const penaltyLines = result.linesCleared - 1;
+				
+				room.players.forEach(target => {
+					if (target.id !== socket.id) {
+						const targetEngine = playerEngines.get(target.id);
+						if (targetEngine && targetEngine.state.isAlive) {
+							targetEngine.addPenaltyLines(penaltyLines);
+						}
+					}
+				});
+			}
+		}
+
+		const roomState = room.players.map(p => {
+			const engine = playerEngines.get(p.id);
+			return {
+				id: p.id,
+				state: engine?.state,
+				displayGrid: engine?.getGridWithPiece()
+			};
+		});
+		io.to(room.id).emit('game:state_update', roomState);
+	});
+
 	socket.on('game:grid_update', ({ grid }: { grid: number[][] }) => {
 		const room = getRoomByPlayer(socket.id);
 		if (!room) return;
 
-		// Invia la griglia a tutti gli ALTRI nella room
 		socket.to(room.id).emit('game:opponent_grid', {
 			playerId: socket.id,
 			grid,
 		});
 	});
 
-	// ─── game:over ───────────────────────────────────────────────
-	// Un giocatore ha perso
 	socket.on('game:over', () => {
 		const player = players.get(socket.id);
 		if (!player) return;
@@ -141,25 +227,36 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		const room = getRoomByPlayer(socket.id);
 		if (!room) return;
 
-		// Controlla quanti sono ancora vivi
 		const alive = room.players.filter((p) => p.isAlive);
 		if (alive.length <= 1) {
-			// Partita finita, notifica tutti
 			io.to(room.id).emit('game:over', {
 				winner: alive[0] || null,
 			});
 		}
 	});
 
-	// ─── disconnect ──────────────────────────────────────────────
 	socket.on('disconnect', () => {
 		console.log(`[Socket] Client disconnected: ${socket.id}`);
 		handleLeaveRoom(io, socket);
 		players.delete(socket.id);
 	});
+
+	socket.on('game:piece_move', ({ cells }: { cells: { row: number; col: number }[] }) => {
+        const room = getRoomByPlayer(socket.id);
+        if (!room) return;
+
+        socket.to(room.id).emit('game:opponent_piece', {
+            playerId: socket.id,
+            cells,
+        });
+    });
+	socket.on('game:attack', ({ lines }: { lines: number }) => {
+		const room = getRoomByPlayer(socket.id);
+		if (!room) return;
+		socket.to(room.id).emit('game:attack', { lines });
+	});
 }
 
-// Gestisce l'uscita da una room (usata sia da room:leave che da disconnect)
 function handleLeaveRoom(io: Server, socket: Socket) {
 	const result = leaveRoom(socket.id);
 	if (!result) return;
@@ -167,11 +264,9 @@ function handleLeaveRoom(io: Server, socket: Socket) {
 	socket.leave(result.room.id);
 
 	if (!result.isEmpty) {
-		// Notifica i rimasti
 		io.to(result.room.id).emit('room:players_updated', result.room.players);
 		io.to(result.room.id).emit('room:player_left', socket.id);
 	}
 
-	// Aggiorna la lista room per tutti
 	io.emit('room:list', getRoomList());
 }

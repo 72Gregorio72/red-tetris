@@ -54,8 +54,20 @@ export const useGameStore = defineStore('game', () => {
     status.value = 'waiting';
   }
 
+  const pendingAttackLines = ref(0);
+
+  function receiveAttack(lines: number) {
+	pendingAttackLines.value += lines;
+  }
+
+  function consumeAttackLines(): number {
+	const lines = pendingAttackLines.value;
+	pendingAttackLines.value = 0;
+	return lines;
+  }
+
   return {
-    grid, score, level, linesCleared, status,
-    setGrid, setStatus, updateState, reset,
+    grid, score, level, linesCleared, status, pendingAttackLines,
+    setGrid, setStatus, updateState, reset, receiveAttack, consumeAttackLines,
   };
 });

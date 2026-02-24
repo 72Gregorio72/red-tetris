@@ -5,13 +5,13 @@ import { useGameStore } from '../stores/game';
 import { useRouter } from 'vue-router';
 
 export function useMultiplayer() {
-	  const multiplayerStore = useMultiplayerStore();
-	  const playerStore = usePlayerStore();
-	  const gameStore = useGameStore();
-	  const router = useRouter();
-const { on, off, emit } = useSocket();
+	const multiplayerStore = useMultiplayerStore();
+	const playerStore = usePlayerStore();
+	const gameStore = useGameStore();
+	const router = useRouter();
+	const { on, off, emit } = useSocket();
 
-	  function registerListeners() {
+	function registerListeners() {
 		on('room:list', (rooms) => {
 			multiplayerStore.setRooms(rooms);
 		});
@@ -28,7 +28,8 @@ const { on, off, emit } = useSocket();
 			multiplayerStore.removeOpponent(playerId);
 		});
 
-		on('game:start', () => {
+		on('game:start', ({ seed }: { seed: string }) => {
+			multiplayerStore.setGameSeed(seed);
 			gameStore.setStatus('playing');
 			router.push('/multiplayer');
 		});
@@ -37,12 +38,20 @@ const { on, off, emit } = useSocket();
 			multiplayerStore.setOpponentGrid(playerId, grid);
 		});
 
+		on('game:opponent_piece', ({ playerId, cells }) => {
+			multiplayerStore.setOpponentPiece(playerId, cells);
+		});
+
 		on('game:over', () => {
 			gameStore.setStatus('finished');
 		});
 
 		on('player:registered', (player) => {
 			playerStore.setPlayer(player);
+		});
+
+		on('game:attack', ({ lines }: { lines: number }) => {
+			gameStore.receiveAttack(lines);
 		});
 	}
 
@@ -53,8 +62,10 @@ const { on, off, emit } = useSocket();
 		off('room:player_left');
 		off('game:start');
 		off('game:opponent_grid');
+		off('game:opponent_piece');
 		off('game:over');
 		off('player:registered');
+		off('game:attack');
 	}
 
 	function connect() {
@@ -92,7 +103,7 @@ const { on, off, emit } = useSocket();
 	function registerPlayer(name: string) {
 		emit('player:register', { name });
 	}
-	  
+		
 	return { 
 		registerListeners,
 		unregisterListeners,

@@ -6,7 +6,7 @@ function shuffleArray<T>(array: T[]): T[] {
 	const arr = [...array];
 	for (let i = arr.length - 1; i > 0; i--) {
 		const j = Math.floor(Math.random() * (i + 1));
-		[arr[i], arr[j]] = [arr[j], arr[i]];
+		[arr[i], arr[j]] = [arr[j]!, arr[i]!];
 	}
 	return arr;
 }
@@ -29,7 +29,7 @@ export class PieceGenerator {
 		if (this.index >= this.sequence.length) {
 			this.addBag();
 		}
-		return this.sequence[this.index++];
+		return this.sequence[this.index++]!;
 	}
 
 	peek(count: number = 5): PieceType[] {

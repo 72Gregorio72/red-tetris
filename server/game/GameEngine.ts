@@ -85,23 +85,23 @@ export class GameEngine {
 		};
 	}
 
-	spawnPiece(type: PieceType): boolean {
-		const piece = {
-			type,
-			row: 0,
-			col: Math.floor(COLS / 2) - 1,
-			rotation: 0,
-		};
+  spawnPiece(type: PieceType): boolean {
+    const piece = {
+      type,
+      row: 0,
+      col: Math.floor(COLS / 2) - 1,
+      rotation: 0,
+    };
 
-		if (!this.canPlace(piece)) {
-			this.state.isAlive = false;
-			return false;
-		} 
+	if (!this.canPlace(piece.row, piece.col, piece.type, piece.rotation)) {
+      this.state.isAlive = false;
+      return false;
+    } 
 
-		this.state.currentPiece = piece;
-		this.state.pieceIndex++;
-		return true;
-	}
+    this.state.currentPiece = piece;
+    this.state.pieceIndex++;
+    return true;
+  }
 
 	private getCells(row: number, col: number, type: PieceType, rotation: number): number[][] {
 		const rotations = SHAPES[type];
@@ -165,6 +165,7 @@ export class GameEngine {
   }
 
   applyAction(action: Action): { locked: boolean; linesCleared: number } {
+	console.log(`[GameEngine] Applying action: ${action}`);
     const p = this.state.currentPiece;
     if (!p || !this.state.isAlive) return { locked: false, linesCleared: 0 };
 
@@ -213,8 +214,6 @@ export class GameEngine {
 
     for (let i = 0; i < count; i++) {
       const row = Array(COLS).fill(8);
-      const hole = Math.floor(Math.random() * COLS);
-      row[hole] = 0;
       this.state.grid.push(row);
     }
 

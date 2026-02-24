@@ -5,8 +5,8 @@ const socket = ref<Socket | null>(null);
 const isConnected = ref(false);
 
 export function useSocket() {
-	function connect(url: string = 'http://localhost:3000') {
-		if (socket.value?.connected) return; // Evita connessioni duplicate
+	function connect(url: string = `http://${window.location.hostname}:3000`) {
+		if (socket.value?.connected) return;
 		socket.value = io(url);
 
 		socket.value.on('connect', () => {
