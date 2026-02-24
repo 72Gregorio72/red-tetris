@@ -5,4 +5,5 @@ export interface IPlayer {
 	isConnected: boolean;
 	isAlive: boolean;
 	isReady: boolean;
+	isPlatformer: boolean;
 }

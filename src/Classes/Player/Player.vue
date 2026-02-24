@@ -17,6 +17,9 @@
 	const isHardDrop = ref(false);
 
 	const handleKeyPress = (event: KeyboardEvent) => {
+		if (['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', ' '].includes(event.key) || event.code === 'Space') {
+			event.preventDefault();
+		}
 		if (event.key === 'ArrowLeft')
 			isMovingLeft.value = true;
 		else if (event.key === 'ArrowRight')

@@ -27,6 +27,7 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 			isConnected: true,
 			isAlive: true,
 			isReady: false,
+			isPlatformer: false,
 		};
 		players.set(socket.id, player);
 		console.log(`[Socket] Player registered: ${name} (${socket.id})`);
@@ -95,13 +96,32 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		if (!room) return;
 		if (room.host.id !== socket.id) return;
 
-		console.log(`[Socket] Game starting in room ${room.name}`);
 		const seed = Math.random().toString(36).substring(2, 15);
 
 		const generator = new PieceGenerator();
 		room.players.forEach(p => {
 			const engine = new GameEngine();
 			engine.spawnPiece(generator.next());
+			playerEngines.set(p.id, engine);
+			playerGenerators.set(p.id, generator);
+			playerLastFall.set(p.id, Date.now());
+		});
+
+		room.players.forEach(p => {
+			const engine = new GameEngine();
+			
+			engine.spawnPiece(generator.next());
+
+			if (p.isPlatformer) {
+				engine.state.platformerChar = {
+					x: 5,
+					y: 0,
+					vx: 0,
+					vy: 0,
+					isGrounded: false
+				};
+			}
+
 			playerEngines.set(p.id, engine);
 			playerGenerators.set(p.id, generator);
 			playerLastFall.set(p.id, Date.now());
@@ -123,81 +143,82 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		
 		const loopId = setInterval(() => {
 			const now = Date.now();
-			let stateChanged = false;
+			let globalStateChanged = false;
 
 			room.players.forEach(p => {
 				const engine = playerEngines.get(p.id);
-				const lastFall = playerLastFall.get(p.id) || now;
+				if (!engine || !engine.state.isAlive) return;
 
-				if (engine && engine.state.isAlive) {
+				if (p.isPlatformer) {
+					const moved = updatePlatformerPhysics(engine, p);
+					if (moved) globalStateChanged = true;
+				} else {
+					const lastFall = playerLastFall.get(p.id) || now;
 					if (now - lastFall > engine.getFallInterval()) {
 						const result = engine.applyAction('down');
 						playerLastFall.set(p.id, now);
-						stateChanged = true;
+						globalStateChanged = true;
 
 						if (result.locked) {
-							const gen = playerGenerators.get(p.id)!;
-							engine.spawnPiece(gen.next());
-							
-							if (result.linesCleared >= 2) {
-								const penaltyLines = result.linesCleared - 1;
-								room.players.forEach(target => {
-									if (target.id !== p.id) {
-										const targetEngine = playerEngines.get(target.id);
-										if (targetEngine && targetEngine.state.isAlive) {
-											targetEngine.addPenaltyLines(penaltyLines);
-										}
-									}
-								});
-							}
+							engine.spawnPiece(playerGenerators.get(p.id)!.next());
+							handlePenaltyLogic(result.linesCleared, p, room);
 						}
 					}
 				}
 			});
 
-			if (stateChanged) {
-                const roomState = room.players.map(p => {
-                    const engine = playerEngines.get(p.id);
-                    return {
-                        id: p.id,
-                        state: engine?.state,
-                        displayGrid: engine?.getGridWithPiece()
-                    };
-                });
-                io.to(room.id).emit('game:state_update', roomState);
-            }
-
-		}, 1000 / 30);
+			if (globalStateChanged) {
+				broadcastRoomState(io, room);
+			}
+		}, 1000 / 60);
 
 		roomGameLoops.set(room.id, loopId);
 		io.emit('room:list', getRoomList());
 	});
 
+	function handlePenaltyLogic(linesCleared: number, player: IPlayer, room: any) {
+		if (linesCleared >= 2) {
+			const penaltyLines = linesCleared - 1;
+			
+			room.players.forEach(target => {
+				if (target.id !== player.id) {
+					const targetEngine = playerEngines.get(target.id);
+					if (targetEngine && targetEngine.state.isAlive) {
+						targetEngine.addPenaltyLines(penaltyLines);
+					}
+				}
+			});
+		}
+	}
+
 	socket.on('game:action', ({ action }: { action: Action }) => {
+		const player = players.get(socket.id);
 		const engine = playerEngines.get(socket.id);
 		const room = getRoomByPlayer(socket.id);
 		if (!engine || !room || !engine.state.isAlive) return;
 
-		const result = engine.applyAction(action);
-        
-		console.log(`[Socket] Action applied: ${action}`);
-		if (result.locked) {
-			const gen = playerGenerators.get(socket.id)!;
-			engine.spawnPiece(gen.next());
-			if (result.linesCleared >= 2) {
-				const penaltyLines = result.linesCleared - 1;
-				
-				room.players.forEach(target => {
-					if (target.id !== socket.id) {
-						const targetEngine = playerEngines.get(target.id);
-						if (targetEngine && targetEngine.state.isAlive) {
-							targetEngine.addPenaltyLines(penaltyLines);
+		if (player.isPlatformer) 
+			handlePlatformerMovement(engine, action);
+		else{
+			const result = engine.applyAction(action);
+
+			if (result.locked) {
+				const gen = playerGenerators.get(socket.id)!;
+				engine.spawnPiece(gen.next());
+				if (result.linesCleared >= 2) {
+					const penaltyLines = result.linesCleared - 1;
+					
+					room.players.forEach(target => {
+						if (target.id !== socket.id) {
+							const targetEngine = playerEngines.get(target.id);
+							if (targetEngine && targetEngine.state.isAlive) {
+								targetEngine.addPenaltyLines(penaltyLines);
+							}
 						}
-					}
-				});
+					});
+				}
 			}
 		}
-
 		const roomState = room.players.map(p => {
 			const engine = playerEngines.get(p.id);
 			return {
@@ -208,6 +229,85 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		});
 		io.to(room.id).emit('game:state_update', roomState);
 	});
+
+	function handlePlatformerMovement(engine: any, action: string) {
+		const char = engine.state.platformerChar;
+		
+		if (!char) return;
+
+		switch(action) {
+			case 'left':
+				if (canMoveTo(engine, char.x - 1, char.y)) char.x--;
+				break;
+			case 'right':
+				if (canMoveTo(engine, char.x + 1, char.y)) char.x++;
+				break;
+			case 'rotate':
+				if (isOnGround(engine, char)) char.velocityY = -2;
+				break;
+		}
+	}
+
+	function canMoveTo(engine: any, x: number, y: number): boolean {
+		const gridX = Math.floor(x);
+		const gridY = Math.floor(y);
+
+		if (gridX < 0 || gridX >= 10 || gridY >= 20) return false;
+		if (gridY < 0) return true;
+
+		return engine.state.grid[gridY][gridX] === 0;
+	}
+
+	function isOnGround(engine: any, char: any): boolean {
+		return !canMoveTo(engine, char.x, char.y + 1);
+	}
+
+	function updatePlatformerPhysics(engine: GameEngine, player: IPlayer): boolean {
+		const char = engine.state.platformerChar;
+		if (!char) return false;
+
+		const nextY = char.y + char.vy;
+		const nextX = char.x + char.vx;
+
+		let hasMoved = false;
+
+		if (checkCollision(engine, char.x, nextY)) {
+			if (char.vy > 0) char.isGrounded = true;
+			char.vy = 0;
+		} else {
+			char.y = nextY;
+			char.isGrounded = false;
+			hasMoved = true;
+		}
+
+		if (!checkCollision(engine, nextX, char.y)) {
+			char.x = nextX;
+			if (char.vx !== 0) hasMoved = true;
+		}
+		
+		char.vx *= 0.8;
+
+		if (char.y > 20 || isSqueezed(engine, char)) {
+			engine.state.isAlive = false;
+			hasMoved = true;
+		}
+
+		return hasMoved;
+	}
+
+	function checkCollision(engine: GameEngine, x: number, y: number): boolean {
+		const gridX = Math.floor(x);
+		const gridY = Math.floor(y);
+
+		if (gridX < 0 || gridX >= 10 || gridY >= 20) return true;
+		if (gridY < 0) return false;
+
+		return engine.state.grid[gridY][gridX] !== 0;
+	}
+
+	function isSqueezed(engine: GameEngine, char: any): boolean {
+		return checkCollision(engine, char.x, char.y) && checkCollision(engine, char.x, char.y - 1);
+	}
 
 	socket.on('game:grid_update', ({ grid }: { grid: number[][] }) => {
 		const room = getRoomByPlayer(socket.id);
@@ -255,6 +355,18 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		if (!room) return;
 		socket.to(room.id).emit('game:attack', { lines });
 	});
+}
+
+function broadcastRoomState(io: Server, room: any) {
+    const roomState = room.players.map((p: IPlayer) => {
+        const engine = playerEngines.get(p.id);
+        return {
+            id: p.id,
+            state: engine?.state,
+            displayGrid: engine?.getGridWithPiece()
+        };
+    });
+    io.to(room.id).emit('game:state_update', roomState);
 }
 
 function handleLeaveRoom(io: Server, socket: Socket) {

@@ -1,4 +1,4 @@
-import type { PieceType } from '../../src/types/piece';
+import type { PieceType } from './PieceGenerator';
 
 const ROWS = 20;
 const COLS = 10;

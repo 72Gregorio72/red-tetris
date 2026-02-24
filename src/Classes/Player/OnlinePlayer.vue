@@ -10,6 +10,9 @@
     const multiplayerStore = useMultiplayerStore();
 
     const handleKeyPress = (event: KeyboardEvent) => {
+        if (['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', ' '].includes(event.key) || event.code === 'Space') {
+            event.preventDefault();
+        }
         if (event.key === 'ArrowLeft') emit('game:action', { action: 'left' });
         if (event.key === 'ArrowRight') emit('game:action', { action: 'right' });
         if (event.key === 'ArrowDown') emit('game:action', { action: 'down' });

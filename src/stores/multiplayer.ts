@@ -12,12 +12,15 @@ export interface IOpponentState {
 	level: number;
 	linesCleared: number;
 	isAlive: boolean;
+	isPlatformer: boolean;
 }
 
 export const useMultiplayerStore = defineStore('multiplayer', () => {
   const currentRoom = ref<IRoom | null>(null);
 
   const rooms = ref<IRoomListItem[]>([]);
+
+  const charPos = ref<{ x: number; y: number } | null>(null);
 
   const opponents = reactive<Record<string, number[][]>>({});
 
@@ -31,6 +34,11 @@ export const useMultiplayerStore = defineStore('multiplayer', () => {
 	if (!currentRoom.value) return false;
 	const player = currentRoom.value.players.find(p => p.id === currentRoom.value?.host?.id);
 	return player ? player.isAlive : false;
+  });
+
+  const player = computed<IPlayer | null>(() => {
+	if (!currentRoom.value) return null;
+	return currentRoom.value.players.find(p => p.id === currentRoom.value?.host?.id) || null;
   });
 
   const myGameState = ref<IGameState | null>(null);
@@ -107,6 +115,7 @@ export const useMultiplayerStore = defineStore('multiplayer', () => {
 
 	myGameState.value = null;
     opponentsState.value = [];
+	charPos.value = null;
 
 	for (const key in opponents) {
 		delete opponents[key];
@@ -121,6 +130,6 @@ export const useMultiplayerStore = defineStore('multiplayer', () => {
     isInRoom, isHost, playerCount,
     setRooms, joinRoom, leaveRoom, updatePlayers,
     setOpponentGrid, setOpponentPiece, removeOpponent, setGameSeed, reset,
-	updateBlockPosition, myGameState, opponentsState, isAlive, myDisplayGrid
+	updateBlockPosition, myGameState, opponentsState, isAlive, myDisplayGrid, player, charPos
   };
 });

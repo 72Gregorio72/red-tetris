@@ -15,22 +15,38 @@
         if (cellValue === 8) return 'penalty';
         return `piece-${cellValue}`;
     };
+
+	const isPlatformer = computed(() => multiplayerStore.player ? multiplayerStore.player.isPlatformer : false);
+	const charPos = computed(() => multiplayerStore.charPos);
+	const charStyle = computed(() => {
+		if (!charPos.value) return {};
+		return {
+			left: `${charPos.value.x * 30}px`,
+			top: `${charPos.value.y * 30}px`
+		};
+	});
 </script>
 
 <template>
     <div class="game-container">
-        <div class="grid" :class="{ 'dimmed': !isAlive }">
-            <template v-for="(row, rIndex) in grid" :key="'r-' + rIndex">
-                <div
-                    v-for="(cell, cIndex) in row"
-                    :key="'c-' + rIndex + '-' + cIndex"
-                    class="block"
-                    :class="getBlockClass(cell)"
-                    :style="{ gridRow: rIndex + 1, gridColumn: cIndex + 1 }"
-                ></div>
-            </template>
+        <div class="grid-wrapper">
+            <div class="grid" :class="{ 'dimmed': !isAlive }">
+                <template v-for="(row, rIndex) in grid" :key="'r-' + rIndex">
+                    <div v-for="(cell, cIndex) in row" 
+                         :key="cIndex" 
+                         class="block" 
+                         :class="getBlockClass(cell)">
+                    </div>
+                </template>
+
+                <div v-if="isPlatformer && charPos" 
+                     class="character-sprite"
+                     :style="charStyle">
+                    <div class="eye-left"></div>
+                    <div class="eye-right"></div>
+                </div>
+            </div>
         </div>
-        <h1 v-if="!isAlive" class="game-over">Game Over!</h1>
     </div>
 </template>
 
