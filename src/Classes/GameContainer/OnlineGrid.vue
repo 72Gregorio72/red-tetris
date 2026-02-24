@@ -25,29 +25,36 @@
 			top: `${charPos.value.y * 30}px`
 		};
 	});
+
+	const charParts = computed(() => {
+		if (!charPos.value || !multiplayerStore.myGameState?.platformerChar?.shape) return [];
+		// Mappiamo la posizione base + gli offset della forma
+		return multiplayerStore.myGameState.platformerChar.shape.map((part: any) => ({
+			x: charPos.value.x + part.dx,
+			y: charPos.value.y + part.dy
+		}));
+	});
 </script>
 
 <template>
-    <div class="game-container">
-        <div class="grid-wrapper">
-            <div class="grid" :class="{ 'dimmed': !isAlive }">
-                <template v-for="(row, rIndex) in grid" :key="'r-' + rIndex">
-                    <div v-for="(cell, cIndex) in row" 
-                         :key="cIndex" 
-                         class="block" 
-                         :class="getBlockClass(cell)">
-                    </div>
-                </template>
-
-                <div v-if="isPlatformer && charPos" 
-                     class="character-sprite"
-                     :style="charStyle">
-                    <div class="eye-left"></div>
-                    <div class="eye-right"></div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <div class="grid-wrapper">
+		<div class="grid" :class="{ 'dimmed': !isAlive }">
+			<template v-if="isPlatformer && charParts.length">
+				<div v-for="(part, index) in charParts" 
+					:key="index"
+					class="character-block"
+					:style="{ 
+						left: `${part.x * 30}px`, 
+						top: `${part.y * 30}px` 
+					}">
+					<template v-if="index === 1">
+						<div class="eye-left"></div>
+						<div class="eye-right"></div>
+					</template>
+				</div>
+			</template>
+		</div>
+	</div>
 </template>
 
 <style scoped>
@@ -104,4 +111,18 @@
         border: 2px solid red;
         border-radius: 8px;
     }
+
+	.character-block {
+		position: absolute;
+		width: 30px;
+		height: 30px;
+		background: #FF00FF;
+		border: 2px solid #fff;
+		box-sizing: border-box;
+		z-index: 20;
+		transition: all 0.05s linear;
+		display: flex;
+		justify-content: space-around;
+		align-items: center;
+	}
 </style>

@@ -27,7 +27,7 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 			isConnected: true,
 			isAlive: true,
 			isReady: false,
-			isPlatformer: false,
+			isPlatformer: true,
 		};
 		players.set(socket.id, player);
 		console.log(`[Socket] Player registered: ${name} (${socket.id})`);
@@ -118,7 +118,8 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 					y: 0,
 					vx: 0,
 					vy: 0,
-					isGrounded: false
+					isGrounded: false,
+					shape: [{ dx: 0, dy: 0 }, { dx: 0, dy: -1 }]
 				};
 			}
 
@@ -295,14 +296,19 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		return hasMoved;
 	}
 
-	function checkCollision(engine: GameEngine, x: number, y: number): boolean {
-		const gridX = Math.floor(x);
-		const gridY = Math.floor(y);
-
-		if (gridX < 0 || gridX >= 10 || gridY >= 20) return true;
-		if (gridY < 0) return false;
-
-		return engine.state.grid[gridY][gridX] !== 0;
+	function checkCollision(engine: any, x: number, y: number): boolean {
+		const char = engine.state.platformerChar;
+		if (char && char.shape) {
+			return char.shape.some((part: any) => {
+				const gridX = Math.floor(x + part.dx);
+				const gridY = Math.floor(y + part.dy);
+				
+				if (gridX < 0 || gridX >= 10 || gridY >= 20) return true;
+				if (gridY < 0) return false;
+				return engine.state.grid[gridY][gridX] !== 0;
+			});
+		}
+		return engine.state.grid[Math.floor(y)][Math.floor(x)] !== 0;
 	}
 
 	function isSqueezed(engine: GameEngine, char: any): boolean {
