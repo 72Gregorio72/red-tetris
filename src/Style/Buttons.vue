@@ -40,7 +40,6 @@ onMounted(() => {
 	gap: 20px;
 }
 
-
 .button-container.button-visible .play-button,
 .button-container.button-visible .multi-button {
 	opacity: 1;

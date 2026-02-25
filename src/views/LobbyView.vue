@@ -58,9 +58,15 @@ function startGame() {
 <template>
   <div class="lobby">
     <div v-if="!player" class="register-section">
-      <h2>Enter your name</h2>
-      <input v-model="playerName" placeholder="Player name" @keyup.enter="register" />
-      <button @click="register">Join</button>
+      <img src="../../public/asset/enter_your_name.png" alt="enter your name" class="enter-image"/>  
+      <div class="input-container">
+        <div class="textured-input">
+          <input v-model="playerName" placeholder="Player name" @keyup.enter="register" />
+        </div>
+        <button @click="register" class="register-button">
+          <img src="../../public/asset/go_button.png" alt="Login" class="register-icon"/>
+        </button>
+      </div>
     </div>
 
     <div v-else-if="!currentRoom" class="rooms-section">
@@ -68,10 +74,11 @@ function startGame() {
 
       <div class="create-room">
         <input v-model="newRoomName" placeholder="Room name" @keyup.enter="createRoom" />
-        <button @click="createRoom">Create Room</button>
+        <button @click="createRoom" class="create-room-button">
+          <img src="../../public/asset/create_room_button.png" alt="Create Room" class="create-room-icon"/>
+        </button>
       </div>
-
-      <h3>Available Rooms</h3>
+      <img src="../../public/asset/available_rooms.png" alt="Available rooms" class="available-image"/>
       <ul class="room-list">
         <li v-for="room in rooms" :key="room.id" class="room-item">
           <span>{{ room.name }} ({{ room.playerCount }}/{{ room.maxPlayers }})</span>
@@ -82,10 +89,14 @@ function startGame() {
             Join
           </button>
         </li>
-        <li v-if="rooms.length === 0">No rooms available</li>
+        <li v-if="rooms.length === 0">
+          <img src="../../public/asset/no_rooms_available.png" alt="No rooms available" class="no-rooms-image"/>
+        </li>
       </ul>
 
-      <button @click="multiplayer.fetchRooms()">Refresh</button>
+      <button @click="multiplayer.fetchRooms()" class="refresh-button">
+        <img src="../../public/asset/refresh_button.png" alt="Refresh Rooms" class="refresh-icon"/>
+      </button>
     </div>
 
     <div v-else class="room-section">
@@ -118,10 +129,22 @@ function startGame() {
 
 <style scoped>
 .lobby {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
   max-width: 600px;
-  margin: 2rem auto;
-  padding: 1rem;
+  min-height: 80vh;
+  margin: 0 auto;
+  padding: 2rem 1rem;
   text-align: center;
+}
+
+.rooms-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 input {
@@ -133,7 +156,7 @@ input {
   color: #fff;
 }
 
-button {
+.button {
   padding: 0.5rem 1rem;
   border: none;
   border-radius: 4px;
@@ -143,12 +166,131 @@ button {
   margin: 0.25rem;
 }
 
+.enter-image {
+  display: flex;
+  width: 500px;
+  height: auto;
+  margin-bottom: 1rem;
+}
+
+.register-section {
+  display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+  
+	width: 100%;
+}
+
+.input-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.textured-input {
+  position: relative;
+  background-image: url('../../public/asset/text_box.png');
+  background-size: cover;
+  background-position: center;
+  width: 300px;
+  height: 150px;
+  display: flex;
+  align-items: center;
+}
+
+.textured-input input {
+  position: relative;
+  bottom: 7px;
+  background: transparent;
+  border: none;
+  outline: none;
+  width: 100%;
+  height: 100%;
+  padding: 0 2.5rem;
+  color: #000000;
+  font-size: 2rem;
+  margin-right: 0;
+}
+
+.register-button {
+  display: flex;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  align-items: center;
+}
+
+.register-icon {
+  width: 200px;
+  height: auto;
+}
+
+.create-room-button, .refresh-button {
+  display: flex;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  align-items: center;
+}
+
+.refresh-button {
+  margin-top: 2rem;
+}
+
+.create-room-icon, .refresh-icon {
+  width: 150px;
+  height: auto;
+}
+
+.create-room, .refresh-section {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.create-room input {
+  margin-right: 0;
+  max-width: 300px;
+  width: 100%;
+}
+
+.register-button:hover, .create-room-button:hover, .refresh-button:hover {
+	transform: scale(1.05);
+}
+
+.register-button:active, .create-room-button:active, .refresh-button:active {
+	transform: scale(0.95);
+}
+
+.available-image {
+  display: flex;
+  width: 400px;
+  height: auto;
+  margin: 1rem 0;
+}
+
+.no-rooms-image {
+  display: flex;
+  width: 350px;
+  height: auto;
+  margin: -6rem 8rem;
+  }
+
 button:disabled {
   background: #666;
   cursor: not-allowed;
 }
 
 .room-list {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
   list-style: none;
   padding: 0;
 }
