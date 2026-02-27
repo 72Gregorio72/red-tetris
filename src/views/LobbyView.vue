@@ -79,20 +79,23 @@ function startGame() {
         </button>
       </div>
       <img src="../../public/asset/available_rooms.png" alt="Available rooms" class="available-image"/>
-      <ul class="room-list">
-        <li v-for="room in rooms" :key="room.id" class="room-item">
-          <span>{{ room.name }} ({{ room.playerCount }}/{{ room.maxPlayers }})</span>
-          <button
-            :disabled="room.playerCount >= room.maxPlayers"
-            @click="joinRoom(room.id)"
-          >
-            Join
-          </button>
-        </li>
-        <li v-if="rooms.length === 0">
+      <div class="rooms-container">
+        <ul class="room-list">
+          <li v-for="room in rooms" :key="room.id" class="room-item">
+            <span>{{ room.name }} ({{ room.playerCount }}/{{ room.maxPlayers }})</span>
+            <button
+              :disabled="room.playerCount >= room.maxPlayers" 
+              @click="joinRoom(room.id)"
+              class="join-button"
+            >
+              <img src="../../public/asset/join-button.png" alt="Join Room" class="join-icon"/>
+            </button>
+          </li>
+        </ul>
+        <div v-if="rooms.length === 0" class="no-rooms-wrapper">
           <img src="../../public/asset/no_rooms_available.png" alt="No rooms available" class="no-rooms-image"/>
-        </li>
-      </ul>
+        </div>
+      </div>
 
       <button @click="multiplayer.fetchRooms()" class="refresh-button">
         <img src="../../public/asset/refresh_button.png" alt="Refresh Rooms" class="refresh-icon"/>
@@ -238,7 +241,7 @@ input {
 }
 
 .refresh-button {
-  margin-top: 2rem;
+  margin-top: -3rem;
 }
 
 .create-room-icon, .refresh-icon {
@@ -260,6 +263,23 @@ input {
   width: 100%;
 }
 
+
+.join-button {
+  display: flex;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  align-items: center;
+  width: 85px;
+  height: 85px;
+}
+
+.join-icon {
+  width: 85px;
+  height: auto;
+}
+
 .register-button:hover, .create-room-button:hover, .refresh-button:hover {
 	transform: scale(1.05);
 }
@@ -268,11 +288,30 @@ input {
 	transform: scale(0.95);
 }
 
+.join-button:hover {
+  transform: scale(1.02);
+}
+
+.join-button:active {
+  transform: scale(0.98);
+}
+
+.rooms-container{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 1.5rem;
+  border: 50px solid transparent; 
+  image-rendering: pixelated;
+  margin-top: 0rem;
+}
+
 .available-image {
   display: flex;
   width: 400px;
   height: auto;
-  margin: 1rem 0;
+  margin-bottom: -5rem;
 }
 
 .no-rooms-image {
@@ -293,16 +332,20 @@ button:disabled {
   width: 100%;
   list-style: none;
   padding: 0;
+  max-height: 300px;
+  overflow-y: scroll;
 }
 
 .room-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.5rem;
-  margin: 0.25rem 0;
+  padding: 0.1rem 1.5rem;
+  margin: 0.5rem auto;
   background: #333;
-  border-radius: 4px;
+  border-radius: 8px;
+  width: 80%;
+  max-width: 500px;
 }
 
 .player-list {
