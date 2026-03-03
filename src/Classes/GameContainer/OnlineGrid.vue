@@ -10,7 +10,8 @@
 	// Dati reattivi dallo store
 	const grid = computed(() => multiplayerStore.myDisplayGrid || emptyGrid);
 	const isAlive = computed(() => multiplayerStore.isAlive);
-	const isPlatformer = computed(() => multiplayerStore.player?.isPlatformer || false);
+	// Show char whenever the game state includes one (shared mode or individual platformer mode)
+	const isPlatformer = computed(() => !!(multiplayerStore.player?.isPlatformer || multiplayerStore.myGameState?.platformerChar));
 
 	// Logica per il personaggio Platformer
 	const charPos = computed(() => multiplayerStore.myGameState?.platformerChar);

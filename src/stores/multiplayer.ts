@@ -30,6 +30,13 @@ export const useMultiplayerStore = defineStore('multiplayer', () => {
 
   const isInRoom = computed(() => currentRoom.value !== null);
 
+  const platformerMode = computed(() => {
+	if (!currentRoom.value) return false;
+	const hasAnyPlatformer = currentRoom.value.players.some(p => p.isPlatformer);
+	const hasAnyTetris = currentRoom.value.players.some(p => !p.isPlatformer);
+	return hasAnyPlatformer && hasAnyTetris;
+  });
+
   const isAlive = computed(() => {
 	if (!currentRoom.value) return false;
 	const player = currentRoom.value.players.find(p => p.id === currentRoom.value?.host?.id);
@@ -127,7 +134,7 @@ export const useMultiplayerStore = defineStore('multiplayer', () => {
 
   return {
     currentRoom, rooms, opponents, opponentPieces, gameSeed,
-    isInRoom, isHost, playerCount,
+    isInRoom, isHost, playerCount, platformerMode,
     setRooms, joinRoom, leaveRoom, updatePlayers,
     setOpponentGrid, setOpponentPiece, removeOpponent, setGameSeed, reset,
 	updateBlockPosition, myGameState, opponentsState, isAlive, myDisplayGrid, player, charPos

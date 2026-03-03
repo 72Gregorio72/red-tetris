@@ -15,6 +15,8 @@ const roomGameLoops = new Map<string, NodeJS.Timeout>();
 const playerEngines = new Map<string, GameEngine>();
 const playerGenerators = new Map<string, PieceGenerator>();
 const playerLastFall = new Map<string, number>();
+const playerLastPlatformerFall = new Map<string, number>();
+const roomMode = new Map<string, 'normal' | 'shared'>();
 
 export function registerSocketHandlers(io: Server, socket: Socket) {
 	console.log(`[Socket] Client connected: ${socket.id}`);
@@ -27,7 +29,7 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 			isConnected: true,
 			isAlive: true,
 			isReady: false,
-			isPlatformer: true,
+			isPlatformer: false,
 		};
 		players.set(socket.id, player);
 		console.log(`[Socket] Player registered: ${name} (${socket.id})`);
@@ -91,6 +93,17 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		io.to(room.id).emit('room:players_updated', room.players);
 	});
 
+	socket.on('game:toggle_platformer', ({ enabled }: { enabled: boolean }) => {
+		const room = getRoomByPlayer(socket.id);
+		if (!room) return;
+		room.players.forEach(p => {
+			if (p.id === socket.id) {
+				p.isPlatformer = enabled;
+			}
+		});
+		io.to(room.id).emit('room:players_updated', room.players);
+	});
+
 	socket.on('game:start', () => {
 		const room = getRoomByPlayer(socket.id);
 		if (!room) return;
@@ -98,35 +111,55 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 
 		const seed = Math.random().toString(36).substring(2, 15);
 
-		const generator = new PieceGenerator();
-		room.players.forEach(p => {
-			const engine = new GameEngine();
-			engine.spawnPiece(generator.next());
-			playerEngines.set(p.id, engine);
-			playerGenerators.set(p.id, generator);
-			playerLastFall.set(p.id, Date.now());
-		});
+		const hasPlatformer = room.players.some((p: IPlayer) => p.isPlatformer);
+		const hasTetris = room.players.some((p: IPlayer) => !p.isPlatformer);
+		const isShared = hasPlatformer && hasTetris;
+		roomMode.set(room.id, isShared ? 'shared' : 'normal');
 
-		room.players.forEach(p => {
-			const engine = new GameEngine();
-			
-			engine.spawnPiece(generator.next());
-
-			if (p.isPlatformer) {
-				engine.state.platformerChar = {
-					x: 5,
-					y: 10,
-					vx: 0,
-					vy: 0,
-					isGrounded: false,
-					shape: [{ dx: 0, dy: 0 }]
-				};
-			}
-
-			playerEngines.set(p.id, engine);
-			playerGenerators.set(p.id, generator);
-			playerLastFall.set(p.id, Date.now());
-		});
+		if (isShared) {
+			// Shared mode: one engine for the grid, platformer char lives inside it
+			const generator = new PieceGenerator();
+			const sharedEngine = new GameEngine();
+			sharedEngine.spawnPiece(generator.next());
+			sharedEngine.state.platformerChar = {
+				x: 5,
+				y: 10,
+				vx: 0,
+				vy: 0,
+				jumpTicks: 0,
+				isGrounded: false,
+				shape: [{ dx: 0, dy: 0 }]
+			};
+			// Both players reference the same engine and generator
+			room.players.forEach((p: IPlayer) => {
+				playerEngines.set(p.id, sharedEngine);
+				playerGenerators.set(p.id, generator);
+				playerLastFall.set(p.id, Date.now());
+				playerLastPlatformerFall.set(p.id, Date.now());
+			});
+		} else {
+			// Normal mode: each player gets their own engine
+			const generator = new PieceGenerator();
+			room.players.forEach((p: IPlayer) => {
+				const engine = new GameEngine();
+				engine.spawnPiece(generator.next());
+				if (p.isPlatformer) {
+					engine.state.platformerChar = {
+						x: 5,
+						y: 10,
+						vx: 0,
+						vy: 0,
+						jumpTicks: 0,
+						isGrounded: false,
+						shape: [{ dx: 0, dy: 0 }]
+					};
+				}
+				playerEngines.set(p.id, engine);
+				playerGenerators.set(p.id, generator);
+				playerLastFall.set(p.id, Date.now());
+				playerLastPlatformerFall.set(p.id, Date.now());
+			});
+		}
 
 		io.to(room.id).emit('game:start', { seed });
 
@@ -146,40 +179,107 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 			const now = Date.now();
 			let globalStateChanged = false;
 
-			room.players.forEach(p => {
-				const engine = playerEngines.get(p.id);
-				if (!engine || !engine.state.isAlive) return;
+			if (roomMode.get(room.id) === 'shared') {
+				// Shared mode: process tetris gravity and platformer physics on the single shared engine
+				const tetrisPlayer = room.players.find((p: IPlayer) => !p.isPlatformer);
+				const platformerPlayer = room.players.find((p: IPlayer) => p.isPlatformer);
+				// Both point to the same engine, just pick one
+				const sharedEngine = tetrisPlayer
+					? playerEngines.get(tetrisPlayer.id)
+					: platformerPlayer
+						? playerEngines.get(platformerPlayer.id)
+						: undefined;
 
-				const lastFall = playerLastFall.get(p.id) || now;
-				const fallInterval = engine.getFallInterval();
-
-				if (now - lastFall > fallInterval) {
-					if (p.isPlatformer) {
-						const char = engine.state.platformerChar;
-						if (char) {
-							const nextY = char.y + 1;
-							if (!checkCollision(engine, char.x, nextY)) {
-								char.y = nextY;
-							} else {
-								char.isGrounded = true;
+				if (sharedEngine && sharedEngine.state.isAlive) {
+					// Tetris gravity
+					if (tetrisPlayer) {
+						const lastFall = playerLastFall.get(tetrisPlayer.id) || now;
+						if (now - lastFall > sharedEngine.getFallInterval()) {
+							const result = sharedEngine.applyAction('down');
+							if (result.locked) {
+								sharedEngine.spawnPiece(playerGenerators.get(tetrisPlayer.id)!.next());
 							}
-						}
-					} else {
-						const result = engine.applyAction('down');
-						if (result.locked) {
-							engine.spawnPiece(playerGenerators.get(p.id)!.next());
-							handlePenaltyLogic(result.linesCleared, p, room);
+							playerLastFall.set(tetrisPlayer.id, now);
+							globalStateChanged = true;
 						}
 					}
-					playerLastFall.set(p.id, now);
-					globalStateChanged = true;
+					// Platformer char moves at double the tetris fall rate
+					if (platformerPlayer) {
+						const platformerInterval = sharedEngine.getFallInterval() / 2;
+						const lastPlatformerFall = playerLastPlatformerFall.get(platformerPlayer.id) || now;
+						if (now - lastPlatformerFall > platformerInterval) {
+							const char = sharedEngine.state.platformerChar;
+							if (char) {
+								const jt = char.jumpTicks || 0;
+								if (jt > 0) {
+									if (canMoveTo(sharedEngine, char.x, char.y - 1)) char.y--;
+									if (canMoveTo(sharedEngine, char.x, char.y - 1)) char.y--;
+									if (canMoveTo(sharedEngine, char.x, char.y - 1)) char.y--;
+									if (canMoveTo(sharedEngine, char.x, char.y - 1)) char.y--;
+									char.jumpTicks = jt - 1;
+								} else {
+									if (canMoveTo(sharedEngine, char.x, char.y + 1)) {
+										char.y++;
+										char.isGrounded = false;
+									} else {
+										char.isGrounded = true;
+									}
+								}
+								if (char.y >= 20) sharedEngine.state.isAlive = false;
+							}
+							playerLastPlatformerFall.set(platformerPlayer.id, now);
+							globalStateChanged = true;
+						}
+					}
 				}
+			} else {
+				room.players.forEach((p: IPlayer) => {
+					const engine = playerEngines.get(p.id);
+					if (!engine || !engine.state.isAlive) return;
 
-				if (p.isPlatformer) {
-					const moved = updatePlatformerPhysics(engine, p);
-					if (moved) globalStateChanged = true;
-				}
-			});
+					const lastFall = playerLastFall.get(p.id) || now;
+					const fallInterval = engine.getFallInterval();
+
+					if (now - lastFall > fallInterval) {
+						if (!p.isPlatformer) {
+							const result = engine.applyAction('down');
+							if (result.locked) {
+								engine.spawnPiece(playerGenerators.get(p.id)!.next());
+								handlePenaltyLogic(result.linesCleared, p, room);
+							}
+							playerLastFall.set(p.id, now);
+							globalStateChanged = true;
+						}
+					}
+
+					if (p.isPlatformer) {
+						const platformerInterval = fallInterval / 2;
+						const lastPlatformerFall = playerLastPlatformerFall.get(p.id) || now;
+						if (now - lastPlatformerFall > platformerInterval) {
+							const char = engine.state.platformerChar;
+							if (char) {
+								const jt = char.jumpTicks || 0;
+								if (jt > 0) {
+									// Rise 2 cells per tick while jumping
+									if (canMoveTo(engine, char.x, char.y - 1)) char.y--;
+									if (canMoveTo(engine, char.x, char.y - 1)) char.y--;
+									char.jumpTicks = jt - 1;
+								} else {
+									if (canMoveTo(engine, char.x, char.y + 1)) {
+										char.y++;
+										char.isGrounded = false;
+									} else {
+										char.isGrounded = true;
+									}
+								}
+								if (char.y >= 20) engine.state.isAlive = false;
+							}
+							playerLastPlatformerFall.set(p.id, now);
+							globalStateChanged = true;
+						}
+					}
+				});
+			}
 
 			if (globalStateChanged) {
 				broadcastRoomState(io, room);
@@ -216,12 +316,11 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		else{
 			const result = engine.applyAction(action);
 
-			if (result.locked) {
+				if (result.locked) {
 				const gen = playerGenerators.get(socket.id)!;
 				engine.spawnPiece(gen.next());
-				if (result.linesCleared >= 2) {
+				if (roomMode.get(room.id) !== 'shared' && result.linesCleared >= 2) {
 					const penaltyLines = result.linesCleared - 1;
-					
 					room.players.forEach(target => {
 						if (target.id !== socket.id) {
 							const targetEngine = playerEngines.get(target.id);
@@ -266,9 +365,8 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		const engine = playerEngines.get(socket.id);
 		const char = engine?.state.platformerChar;
 		
-		if (char && checkCollision(engine, char.x, char.y + 1)) { 
-			console.log('Jump!');
-			char.vy = -1; 
+		if (char && char.isGrounded) {
+			char.jumpTicks = 2;
 			char.isGrounded = false;
 		}
 	}
@@ -287,38 +385,6 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		return !canMoveTo(engine, char.x, char.y + 1);
 	}
 
-	function updatePlatformerPhysics(engine: GameEngine, player: IPlayer): boolean {
-		const char = engine.state.platformerChar;
-		if (!char) return false;
-
-		let hasMoved = false;
-
-		if (char.vy < 0) {
-			const nextY = char.y + char.vy;
-			if (!checkCollision(engine, char.x, nextY)) {
-				char.y = nextY;
-				char.isGrounded = false;
-				hasMoved = true;
-				char.vy += 0.2; 
-				if (char.vy > 0) char.vy = 0;
-			} else {
-				char.vy = 0;
-			}
-		}
-
-		if (isSqueezed(engine, char)) {
-			engine.state.isAlive = false;
-			hasMoved = true;
-		}
-
-		if (char.y >= 20) {
-			engine.state.isAlive = false;
-			hasMoved = true;
-		}
-
-		return hasMoved;
-	}
-
 	function checkCollision(engine: any, x: number, y: number): boolean {
 		const char = engine.state.platformerChar;
 		if (!char || !char.shape) return false;
@@ -333,10 +399,6 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 
 			return engine.state.grid[gridY][gridX] !== 0;
 		});
-	}
-
-	function isSqueezed(engine: GameEngine, char: any): boolean {
-		return checkCollision(engine, char.x, char.y) && checkCollision(engine, char.x, char.y - 1);
 	}
 
 	socket.on('game:grid_update', ({ grid }: { grid: number[][] }) => {
@@ -388,15 +450,28 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 }
 
 function broadcastRoomState(io: Server, room: any) {
-    const roomState = room.players.map((p: IPlayer) => {
-        const engine = playerEngines.get(p.id);
-        return {
+    if (roomMode.get(room.id) === 'shared') {
+        const anyPlayer = room.players[0];
+        const sharedEngine = anyPlayer ? playerEngines.get(anyPlayer.id) : undefined;
+        const sharedState = sharedEngine?.state ?? null;
+        const sharedGrid = sharedEngine?.getGridWithPiece() ?? null;
+        const roomState = room.players.map((p: IPlayer) => ({
             id: p.id,
-            state: engine?.state,
-            displayGrid: engine?.getGridWithPiece()
-        };
-    });
-    io.to(room.id).emit('game:state_update', roomState);
+            state: sharedState,
+            displayGrid: sharedGrid
+        }));
+        io.to(room.id).emit('game:state_update', roomState);
+    } else {
+        const roomState = room.players.map((p: IPlayer) => {
+            const engine = playerEngines.get(p.id);
+            return {
+                id: p.id,
+                state: engine?.state,
+                displayGrid: engine?.getGridWithPiece()
+            };
+        });
+        io.to(room.id).emit('game:state_update', roomState);
+    }
 }
 
 function handleLeaveRoom(io: Server, socket: Socket) {
@@ -405,7 +480,9 @@ function handleLeaveRoom(io: Server, socket: Socket) {
 
 	socket.leave(result.room.id);
 
-	if (!result.isEmpty) {
+	if (result.isEmpty) {
+		roomMode.delete(result.room.id);
+	} else {
 		io.to(result.room.id).emit('room:players_updated', result.room.players);
 		io.to(result.room.id).emit('room:player_left', socket.id);
 	}

@@ -103,6 +103,10 @@ export function useMultiplayer() {
 	function registerPlayer(name: string) {
 		emit('player:register', { name });
 	}
+
+	function setPlatformerMode(isEnabled: boolean) {
+		emit('game:toggle_platformer', { enabled: isEnabled });
+	}
 		
 	return { 
 		registerListeners,
@@ -116,5 +120,6 @@ export function useMultiplayer() {
 		startGame,
 		fetchRooms,
 		registerPlayer,
+		setPlatformerMode
 	};
 }
