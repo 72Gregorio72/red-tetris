@@ -52,6 +52,12 @@ export interface PlayerGameState {
 	} | null;
 	isAlive: boolean;
 	pieceIndex: number;
+	platformerChar: {
+		x: number;
+		y: number;
+		jumpTicks: number;
+		isGrounded: boolean;
+	} | null;
 }
 
 export type Action = 'left' | 'right' | 'down' | 'rotate' | 'drop';
@@ -82,6 +88,7 @@ export class GameEngine {
 			currentPiece: null,
 			isAlive: true,
 			pieceIndex: 0,
+			platformerChar: null,
 		};
 	}
 

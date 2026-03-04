@@ -208,12 +208,20 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 						checkPlatformerCollision(sharedEngine);
 						const platformerInterval = sharedEngine.getFallInterval() / 2;
 						const lastPlatformerFall = playerLastPlatformerFall.get(platformerPlayer.id) || now;
+						const fallinterval = sharedEngine.getFallInterval();
+						const jumpInterval = fallinterval / 4;
+						const char = sharedEngine.state.platformerChar;
+						const jt = char?.jumpTicks || 0;
+						if (now - lastPlatformerFall > jumpInterval) {
+							if (jt > 0) {
+								if (canMoveTo(sharedEngine, char.x, char.y - 1)) char.y--;
+								char.jumpTicks = jt - 1;
+							}
+						}
 						if (now - lastPlatformerFall > platformerInterval) {
-							const char = sharedEngine.state.platformerChar;
 							if (char) {
-								const jt = char.jumpTicks || 0;
 								if (jt > 0) {
-									if (canMoveTo(sharedEngine, char.x, char.y - 1)) char.y-= 4;
+									//if (canMoveTo(sharedEngine, char.x, char.y - 1)) char.y-= 4;
 									char.jumpTicks = jt - 1;
 								} else {
 									if (canMoveTo(sharedEngine, char.x, char.y + 1)) {
@@ -253,13 +261,20 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 					if (p.isPlatformer) {
 						checkPlatformerCollision(engine);
 						const platformerInterval = fallInterval / 2;
+						const jumpInterval = fallinterval / 4;
 						const lastPlatformerFall = playerLastPlatformerFall.get(p.id) || now;
+						const char = engine.state.platformerChar;
+						const jt = char.jumpTicks || 0;
+						if (now - lastPlatformerFall > jumpInterval) {
+							if (jt > 0) {
+								if (canMoveTo(engine, char.x, char.y - 1)) char.y--;
+								char.jumpTicks = jt - 1;
+							}
+						}
 						if (now - lastPlatformerFall > platformerInterval) {
-							const char = engine.state.platformerChar;
 							if (char) {
-								const jt = char.jumpTicks || 0;
 								if (jt > 0) {
-									if (canMoveTo(engine, char.x, char.y - 1)) char.y-= 4;
+									//if (canMoveTo(engine, char.x, char.y - 1)) char.y-= 4;
 									char.jumpTicks = jt - 1;
 								} else {
 									if (canMoveTo(engine, char.x, char.y + 1)) {
@@ -361,11 +376,8 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 	function checkPlatformerCollision(engine: any) {
 		const char = engine.state.platformerChar;
 		if (!char) return;
-		console.log("collision: " + checkCollision(engine, char.x, char.y));
-		if (checkCollision(engine, char.x, char.y)) {
+		if (checkCollision(engine, char.x, char.y))
 			engine.state.isAlive = false;
-			console.log(`[Game] Platformer character died due to collision at (${char.x}, ${char.y})`);
-		}
 	}
 
 	function jump() {
@@ -373,7 +385,7 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		const char = engine?.state.platformerChar;
 		
 		if (char && char.isGrounded) {
-			char.jumpTicks = 1;
+			char.jumpTicks = 4;
 			char.isGrounded = false;
 		}
 	}
@@ -385,7 +397,8 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		if (gridX < 0 || gridX >= 10 || gridY >= 20) return false;
 		if (gridY < 0) return true;
 
-		return engine.state.grid[gridY][gridX] === 0;
+		const grid = engine.getGridWithPiece();
+		return grid[gridY][gridX] === 0;
 	}
 
 	function isOnGround(engine: any, char: any): boolean {
@@ -396,6 +409,7 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		const char = engine.state.platformerChar;
 		if (!char || !char.shape) return false;
 
+		const grid = engine.getGridWithPiece();
 		return char.shape.some((part: any) => {
 			const gridX = Math.floor(x + part.dx);
 			const gridY = Math.floor(y + part.dy);
@@ -404,7 +418,7 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 			if (gridY >= 20) return true;
 			if (gridY < 0) return false;
 
-			return engine.state.grid[gridY][gridX] !== 0;
+			return grid[gridY][gridX] !== 0;
 		});
 	}
 
