@@ -52,6 +52,17 @@ export const useMultiplayerStore = defineStore('multiplayer', () => {
   const opponentsState = ref<{ id: string, state: IGameState }[]>([]);
   const myDisplayGrid = ref<number[][] | null>(null);
 
+  // Round & score tracking for platformer mode
+  const currentRound = ref(0);
+  const totalRounds = ref(0);
+  const playerScores = ref<Record<string, number>>({});
+  const gameFinished = ref(false);
+  const gameWinner = ref<{ id: string; name: string; score: number } | null>(null);
+  const myPlatformerScore = ref(0);
+  const INITIAL_BOMBS = 3;
+  const myBombs = ref(INITIAL_BOMBS);
+  
+
   const isHost = computed(() => {
     return (playerId: string) => currentRoom.value?.host?.id === playerId;
   });
@@ -124,6 +135,14 @@ export const useMultiplayerStore = defineStore('multiplayer', () => {
     opponentsState.value = [];
 	charPos.value = null;
 
+	currentRound.value = 0;
+	totalRounds.value = 0;
+	playerScores.value = {};
+	gameFinished.value = false;
+	gameWinner.value = null;
+	myPlatformerScore.value = 0;
+	myBombs.value = INITIAL_BOMBS;
+
 	for (const key in opponents) {
 		delete opponents[key];
 	}
@@ -137,6 +156,7 @@ export const useMultiplayerStore = defineStore('multiplayer', () => {
     isInRoom, isHost, playerCount, platformerMode,
     setRooms, joinRoom, leaveRoom, updatePlayers,
     setOpponentGrid, setOpponentPiece, removeOpponent, setGameSeed, reset,
-	updateBlockPosition, myGameState, opponentsState, isAlive, myDisplayGrid, player, charPos
+	updateBlockPosition, myGameState, opponentsState, isAlive, myDisplayGrid, player, charPos,
+	currentRound, totalRounds, playerScores, gameFinished, gameWinner, myPlatformerScore, myBombs
   };
 });

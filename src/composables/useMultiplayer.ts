@@ -28,10 +28,25 @@ export function useMultiplayer() {
 			multiplayerStore.removeOpponent(playerId);
 		});
 
-		on('game:start', ({ seed }: { seed: string }) => {
+		on('game:start', ({ seed }: { seed: string; round: number; totalRounds: number }) => {
 			multiplayerStore.setGameSeed(seed);
+			multiplayerStore.gameFinished = false;
+			multiplayerStore.gameWinner = null;
 			gameStore.setStatus('playing');
 			router.push('/multiplayer');
+		});
+
+		on('game:round_update', ({ round, totalRounds, scores }: { round: number; totalRounds: number; scores: Record<string, number> }) => {
+			multiplayerStore.currentRound = round;
+			multiplayerStore.totalRounds = totalRounds;
+			multiplayerStore.playerScores = scores;
+		});
+
+		on('game:finished', ({ winner, scores }: { winner: { id: string; name: string; score: number } | null; scores: Record<string, number> }) => {
+			multiplayerStore.gameFinished = true;
+			multiplayerStore.gameWinner = winner;
+			multiplayerStore.playerScores = scores;
+			gameStore.setStatus('finished');
 		});
 
 		on('game:opponent_grid', ({ playerId, grid }) => {
@@ -61,6 +76,8 @@ export function useMultiplayer() {
 		off('room:players_updated');
 		off('room:player_left');
 		off('game:start');
+		off('game:round_update');
+		off('game:finished');
 		off('game:opponent_grid');
 		off('game:opponent_piece');
 		off('game:over');

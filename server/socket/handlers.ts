@@ -17,6 +17,13 @@ const playerGenerators = new Map<string, PieceGenerator>();
 const playerLastFall = new Map<string, number>();
 const playerLastPlatformerFall = new Map<string, number>();
 const roomMode = new Map<string, 'normal' | 'shared'>();
+const roomRound = new Map<string, number>();
+const roomTotalRounds = new Map<string, number>();
+const playerPlatformerScore = new Map<string, number>();
+const playerLastScoreIncrement = new Map<string, number>();
+const roomLastRisingLine = new Map<string, number>();
+const playerBombs = new Map<string, number>();
+const INITIAL_BOMBS = 3;
 
 export function registerSocketHandlers(io: Server, socket: Socket) {
 	console.log(`[Socket] Client connected: ${socket.id}`);
@@ -30,6 +37,7 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 			isAlive: true,
 			isReady: false,
 			isPlatformer: false,
+			life: 0,
 		};
 		players.set(socket.id, player);
 		console.log(`[Socket] Player registered: ${name} (${socket.id})`);
@@ -111,12 +119,23 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 
 		const seed = Math.random().toString(36).substring(2, 15);
 
-		const rounds = 5;
-
 		const hasPlatformer = room.players.some((p: IPlayer) => p.isPlatformer);
 		const hasTetris = room.players.some((p: IPlayer) => !p.isPlatformer);
 		const isShared = hasPlatformer && hasTetris;
 		roomMode.set(room.id, isShared ? 'shared' : 'normal');
+
+		// Initialize round tracking: 3 rounds per player
+		const totalRounds = room.players.length * 3;
+		roomRound.set(room.id, 1);
+		roomTotalRounds.set(room.id, totalRounds);
+		// Reset platformer scores and bombs for all players
+		room.players.forEach((p: IPlayer) => {
+			p.score = 0;
+			playerPlatformerScore.set(p.id, 0);
+			playerLastScoreIncrement.set(p.id, Date.now());
+			if (p.isPlatformer) playerBombs.set(p.id, INITIAL_BOMBS);
+		});
+		roomLastRisingLine.set(room.id, Date.now());
 
 		if (isShared) {
 			// Shared mode: one engine for the grid, platformer char lives inside it
@@ -163,7 +182,12 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 			});
 		}
 
-		io.to(room.id).emit('game:start', { seed });
+		io.to(room.id).emit('game:start', { seed, round: 1, totalRounds });
+		io.to(room.id).emit('game:round_update', {
+			round: 1,
+			totalRounds,
+			scores: Object.fromEntries(room.players.map((p: IPlayer) => [p.id, 0]))
+		});
 
 		const initialState = room.players.map(p => {
             const engine = playerEngines.get(p.id);
@@ -181,6 +205,45 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 			const now = Date.now();
 			let globalStateChanged = false;
 
+			const SCORE_INCREMENT_INTERVAL = 1000;
+			const SCORE_POINTS_PER_TICK = 10;
+
+			const RISING_LINE_INTERVAL = 6000;
+			const RISING_GAP_SIZE = 0;
+
+			const lastRisingLine = roomLastRisingLine.get(room.id) || now;
+			if (now - lastRisingLine >= RISING_LINE_INTERVAL) {
+				roomLastRisingLine.set(room.id, now);
+
+				if (roomMode.get(room.id) === 'shared') {
+					const anyEngine = playerEngines.get(room.players[0]?.id);
+					if (anyEngine && anyEngine.state.isAlive) {
+						const alive = anyEngine.addRisingLine(RISING_GAP_SIZE);
+						if (!alive) {
+							platformerDead();
+							return;
+						}
+						globalStateChanged = true;
+					}
+				} else {
+					let someoneDied = false;
+					room.players.forEach((p: IPlayer) => {
+						const engine = playerEngines.get(p.id);
+						if (engine && engine.state.isAlive) {
+							const alive = engine.addRisingLine(RISING_GAP_SIZE);
+							if (!alive && p.isPlatformer) {
+								someoneDied = true;
+							}
+						}
+					});
+					if (someoneDied) {
+						platformerDead();
+						return;
+					}
+					globalStateChanged = true;
+				}
+			}
+
 			if (roomMode.get(room.id) === 'shared') {
 				// Shared mode: process tetris gravity and platformer physics on the single shared engine
 				const tetrisPlayer = room.players.find((p: IPlayer) => !p.isPlatformer);
@@ -193,6 +256,18 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 						: undefined;
 
 				if (sharedEngine && sharedEngine.state.isAlive) {
+					// Increment platformer score over time
+					if (platformerPlayer) {
+						const lastScoreInc = playerLastScoreIncrement.get(platformerPlayer.id) || now;
+						if (now - lastScoreInc >= SCORE_INCREMENT_INTERVAL) {
+							const currentScore = playerPlatformerScore.get(platformerPlayer.id) || 0;
+							playerPlatformerScore.set(platformerPlayer.id, currentScore + SCORE_POINTS_PER_TICK);
+							platformerPlayer.score = playerPlatformerScore.get(platformerPlayer.id)!;
+							playerLastScoreIncrement.set(platformerPlayer.id, now);
+							globalStateChanged = true;
+						}
+					}
+
 					// Tetris gravity
 					if (tetrisPlayer) {
 						checkTetrisCollision(sharedEngine);
@@ -248,6 +323,18 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 
 					const lastFall = playerLastFall.get(p.id) || now;
 					const fallInterval = engine.getFallInterval();
+
+					// Increment platformer score over time
+					if (p.isPlatformer) {
+						const lastScoreInc = playerLastScoreIncrement.get(p.id) || now;
+						if (now - lastScoreInc >= SCORE_INCREMENT_INTERVAL) {
+							const currentScore = playerPlatformerScore.get(p.id) || 0;
+							playerPlatformerScore.set(p.id, currentScore + SCORE_POINTS_PER_TICK);
+							p.score = playerPlatformerScore.get(p.id)!;
+							playerLastScoreIncrement.set(p.id, now);
+							globalStateChanged = true;
+						}
+					}
 
 					if (now - lastFall > fallInterval) {
 						if (!p.isPlatformer) {
@@ -329,9 +416,74 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 
 		if (!currentPlatformer || !currentTetris) return;
 
+		// Increment round counter
+		const currentRound = (roomRound.get(room.id) || 1);
+		const totalRounds = roomTotalRounds.get(room.id) || 6;
+		const nextRound = currentRound + 1;
+		roomRound.set(room.id, nextRound);
+
+		// Send round update with scores
+		const scores: Record<string, number> = {};
+		room.players.forEach((p: IPlayer) => {
+			scores[p.id] = playerPlatformerScore.get(p.id) || 0;
+		});
+
+		// Check if all rounds are done
+		if (nextRound > totalRounds) {
+			// Game finished — determine winner
+			let winnerInfo: { id: string; name: string; score: number } | null = null;
+			let highestScore = -1;
+			room.players.forEach((p: IPlayer) => {
+				const pScore = playerPlatformerScore.get(p.id) || 0;
+				if (pScore > highestScore) {
+					highestScore = pScore;
+					winnerInfo = { id: p.id, name: p.name, score: pScore };
+				}
+			});
+
+			// Stop the game loop
+			const loopId = roomGameLoops.get(room.id);
+			if (loopId) {
+				clearInterval(loopId);
+				roomGameLoops.delete(room.id);
+			}
+
+			io.to(room.id).emit('game:round_update', {
+				round: nextRound,
+				totalRounds,
+				scores,
+			});
+
+			io.to(room.id).emit('game:finished', {
+				winner: winnerInfo,
+				scores,
+			});
+
+			// Clean up round tracking
+			roomRound.delete(room.id);
+			roomTotalRounds.delete(room.id);
+			roomLastRisingLine.delete(room.id);
+			room.players.forEach((p: IPlayer) => {
+					playerPlatformerScore.delete(p.id);
+				playerLastScoreIncrement.delete(p.id);
+				playerBombs.delete(p.id);
+			});
+
+			return;
+		}
+
 		// Swap roles: old platformer becomes tetris, old tetris becomes platformer
 		currentPlatformer.isPlatformer = false;
 		currentTetris.isPlatformer = true;
+
+		// Reset score increment timer for new platformer
+		playerLastScoreIncrement.set(currentTetris.id, Date.now());
+
+		// Reset bombs for the new platformer
+		playerBombs.set(currentTetris.id, INITIAL_BOMBS);
+
+		// Reset rising line timer for new round
+		roomLastRisingLine.set(room.id, Date.now());
 
 		const isShared = roomMode.get(room.id) === 'shared';
 
@@ -392,8 +544,13 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 			});
 		}
 
-		// Notify clients of role swap and new game state
+		// Notify clients of role swap, round update, and new game state
 		io.to(room.id).emit('room:players_updated', room.players);
+		io.to(room.id).emit('game:round_update', {
+			round: nextRound,
+			totalRounds,
+			scores,
+		});
 		broadcastRoomState(io, room);
 	}
 
@@ -481,6 +638,27 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 			case 'rotate':
 				jump();
 				break;
+			case 'down':
+				placeBomb(engine);
+				break;
+		}
+	}
+
+	function placeBomb(engine: any) {
+		const char = engine.state.platformerChar;
+		if (!char) return;
+
+		const currentBombs = playerBombs.get(socket.id) || 0;
+		if (currentBombs <= 0) return;
+		playerBombs.set(socket.id, currentBombs - 1);
+		for (let dx = -1; dx <= 1; dx++) {
+			for (let dy = -1; dy <= 1; dy++) {
+				const targetX = Math.floor(char.x + dx);
+				const targetY = Math.floor(char.y + dy);
+				if (targetX >= 0 && targetX < 10 && targetY >= 0 && targetY < 20) {
+					engine.clearCell(targetX, targetY);
+				}
+			}
 		}
 	}
 
@@ -590,7 +768,9 @@ function broadcastRoomState(io: Server, room: any) {
         const roomState = room.players.map((p: IPlayer) => ({
             id: p.id,
             state: sharedState,
-            displayGrid: sharedGrid
+            displayGrid: sharedGrid,
+            platformerScore: playerPlatformerScore.get(p.id) || 0,
+            bombs: playerBombs.get(p.id) ?? 0
         }));
         io.to(room.id).emit('game:state_update', roomState);
     } else {
@@ -599,7 +779,9 @@ function broadcastRoomState(io: Server, room: any) {
             return {
                 id: p.id,
                 state: engine?.state,
-                displayGrid: engine?.getGridWithPiece()
+                displayGrid: engine?.getGridWithPiece(),
+                platformerScore: playerPlatformerScore.get(p.id) || 0,
+                bombs: playerBombs.get(p.id) ?? 0
             };
         });
         io.to(room.id).emit('game:state_update', roomState);
@@ -614,6 +796,9 @@ function handleLeaveRoom(io: Server, socket: Socket) {
 
 	if (result.isEmpty) {
 		roomMode.delete(result.room.id);
+		roomRound.delete(result.room.id);
+		roomTotalRounds.delete(result.room.id);
+		roomLastRisingLine.delete(result.room.id);
 	} else {
 		io.to(result.room.id).emit('room:players_updated', result.room.players);
 		io.to(result.room.id).emit('room:player_left', socket.id);

@@ -73,12 +73,18 @@
         window.addEventListener('keyup', handleKeyUp);
         startPlatformerLoop();
         
-        socket.value?.on('game:state_update', (roomState: Array<{ id: string; state: any; displayGrid: number[][] }>) => {
+        socket.value?.on('game:state_update', (roomState: Array<{ id: string; state: any; displayGrid: number[][]; platformerScore?: number; bombs?: number }>) => {
             const myData = roomState.find(p => p.id === socket.value?.id);
             if (myData && socket.value?.id) {
                 multiplayerStore.myGameState = myData.state; 
                 multiplayerStore.setOpponentGrid(socket.value.id, myData.displayGrid);
 				multiplayerStore.myDisplayGrid = myData.displayGrid;
+				if (myData.platformerScore !== undefined) {
+					multiplayerStore.myPlatformerScore = myData.platformerScore;
+				}
+				if (myData.bombs !== undefined) {
+					multiplayerStore.myBombs = myData.bombs;
+				}
             }
             
             const opponents = roomState.filter(p => p.id !== socket.value?.id);
