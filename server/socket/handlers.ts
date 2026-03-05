@@ -111,6 +111,8 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 
 		const seed = Math.random().toString(36).substring(2, 15);
 
+		const rounds = 5;
+
 		const hasPlatformer = room.players.some((p: IPlayer) => p.isPlatformer);
 		const hasTetris = room.players.some((p: IPlayer) => !p.isPlatformer);
 		const isShared = hasPlatformer && hasTetris;
@@ -193,6 +195,7 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 				if (sharedEngine && sharedEngine.state.isAlive) {
 					// Tetris gravity
 					if (tetrisPlayer) {
+						checkTetrisCollision(sharedEngine);
 						const lastFall = playerLastFall.get(tetrisPlayer.id) || now;
 						if (now - lastFall > sharedEngine.getFallInterval()) {
 							const result = sharedEngine.applyAction('down');
@@ -206,10 +209,10 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 					// Platformer char moves at double the tetris fall rate
 					if (platformerPlayer) {
 						checkPlatformerCollision(sharedEngine);
-						const platformerInterval = sharedEngine.getFallInterval() / 2;
+						const platformerInterval = sharedEngine.getFallInterval() / 10;
 						const lastPlatformerFall = playerLastPlatformerFall.get(platformerPlayer.id) || now;
 						const fallinterval = sharedEngine.getFallInterval();
-						const jumpInterval = fallinterval / 4;
+						const jumpInterval = fallinterval / 10;
 						const char = sharedEngine.state.platformerChar;
 						const jt = char?.jumpTicks || 0;
 						if (now - lastPlatformerFall > jumpInterval) {
@@ -260,8 +263,8 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 
 					if (p.isPlatformer) {
 						checkPlatformerCollision(engine);
-						const platformerInterval = fallInterval / 2;
-						const jumpInterval = fallinterval / 4;
+						const platformerInterval = fallInterval / 10;
+						const jumpInterval = fallInterval / 10;
 						const lastPlatformerFall = playerLastPlatformerFall.get(p.id) || now;
 						const char = engine.state.platformerChar;
 						const jt = char.jumpTicks || 0;
@@ -302,6 +305,111 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		io.emit('room:list', getRoomList());
 	});
 
+	function checkTetrisCollision(engine: GameEngine) {
+		const char = engine.state.platformerChar;
+		if (!char) return;
+
+		if (checkCollision(engine, char.x, char.y)) {
+			if (canMoveTo(engine, char.x, char.y + 1)) {
+				char.y++;
+			} else {
+				engine.state.isAlive = false;
+				platformerDead();
+			}
+		}
+	}
+
+	function platformerDead() {
+		const room = getRoomByPlayer(socket.id);
+		if (!room) return;
+
+		// Find current platformer and tetris players
+		const currentPlatformer = room.players.find((p: IPlayer) => p.isPlatformer);
+		const currentTetris = room.players.find((p: IPlayer) => !p.isPlatformer);
+
+		if (!currentPlatformer || !currentTetris) return;
+
+		// Swap roles: old platformer becomes tetris, old tetris becomes platformer
+		currentPlatformer.isPlatformer = false;
+		currentTetris.isPlatformer = true;
+
+		const isShared = roomMode.get(room.id) === 'shared';
+
+		if (isShared) {
+			// Shared mode: both players share a single engine — reset it and set up fresh
+			const sharedEngine = playerEngines.get(currentPlatformer.id) || playerEngines.get(currentTetris.id);
+			if (!sharedEngine) return;
+
+			sharedEngine.reset();
+			sharedEngine.state.isAlive = true;
+
+			// Fresh generator for the new round
+			const generator = new PieceGenerator();
+			sharedEngine.spawnPiece(generator.next());
+
+			// Set up platformer char for the new platformer (was tetris)
+			sharedEngine.state.platformerChar = {
+				x: 5,
+				y: 10,
+				vx: 0,
+				vy: 0,
+				jumpTicks: 0,
+				isGrounded: false,
+				shape: [{ dx: 0, dy: 0 }]
+			};
+
+			// Update references for all players
+			room.players.forEach((p: IPlayer) => {
+				playerEngines.set(p.id, sharedEngine);
+				playerGenerators.set(p.id, generator);
+				playerLastFall.set(p.id, Date.now());
+				playerLastPlatformerFall.set(p.id, Date.now());
+			});
+		} else {
+			// Normal mode: each player has their own engine — create fresh ones
+			const generator = new PieceGenerator();
+
+			room.players.forEach((p: IPlayer) => {
+				const engine = new GameEngine();
+				engine.spawnPiece(generator.next());
+
+				if (p.isPlatformer) {
+					engine.state.platformerChar = {
+						x: 5,
+						y: 10,
+						vx: 0,
+						vy: 0,
+						jumpTicks: 0,
+						isGrounded: false,
+						shape: [{ dx: 0, dy: 0 }]
+					};
+				}
+
+				playerEngines.set(p.id, engine);
+				playerGenerators.set(p.id, generator);
+				playerLastFall.set(p.id, Date.now());
+				playerLastPlatformerFall.set(p.id, Date.now());
+			});
+		}
+
+		// Notify clients of role swap and new game state
+		io.to(room.id).emit('room:players_updated', room.players);
+		broadcastRoomState(io, room);
+	}
+
+	function movePlaformerChar(engine: GameEngine, action: string) {
+		const char = engine.state.platformerChar;
+		if (!char) return;
+
+		if (checkCollision(engine, char.x, char.y)) {
+			if (action === 'left' && canMoveTo(engine, char.x - 1, char.y)) {
+				char.x--;
+			} else if (action === 'right' && canMoveTo(engine, char.x + 1, char.y)) {
+				char.x++;
+			}
+		}
+	}
+
 	function handlePenaltyLogic(linesCleared: number, player: IPlayer, room: any) {
 		if (linesCleared >= 2) {
 			const penaltyLines = linesCleared - 1;
@@ -328,7 +436,10 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		else{
 			const result = engine.applyAction(action);
 
-				if (result.locked) {
+			if (action === 'left' || action === 'right')
+				movePlaformerChar(engine, action);
+
+			if (result.locked) {
 				const gen = playerGenerators.get(socket.id)!;
 				engine.spawnPiece(gen.next());
 				if (roomMode.get(room.id) !== 'shared' && result.linesCleared >= 2) {
@@ -376,8 +487,8 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 	function checkPlatformerCollision(engine: any) {
 		const char = engine.state.platformerChar;
 		if (!char) return;
-		if (checkCollision(engine, char.x, char.y))
-			engine.state.isAlive = false;
+		// if (checkCollision(engine, char.x, char.y))
+		// 	engine.state.isAlive = false;
 	}
 
 	function jump() {

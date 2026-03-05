@@ -6,4 +6,5 @@ export interface IPlayer {
 	isAlive: boolean;
 	isReady: boolean;
 	isPlatformer: boolean;
+	life: number;
 }

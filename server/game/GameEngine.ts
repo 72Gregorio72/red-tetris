@@ -171,6 +171,19 @@ export class GameEngine {
     return cleared;
   }
 
+  reset() {
+	this.state = {
+	  grid: createEmptyGrid(),
+	  score: 0,
+	  level: 1,
+	  linesCleared: 0,
+	  currentPiece: null,
+	  isAlive: true,
+	  pieceIndex: 0,
+	  platformerChar: null,
+	};
+  }
+
   applyAction(action: Action): { locked: boolean; linesCleared: number } {
 	console.log(`[GameEngine] Applying action: ${action}`);
     const p = this.state.currentPiece;
