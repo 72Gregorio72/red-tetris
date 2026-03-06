@@ -1,29 +1,34 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { ref } from 'vue';
 
-const buttonIsVisible = ref(false);
+const pressedButton = ref< 'play' | 'multi' | null >(null); 
 const router = useRouter();
 
-function startGame(path: string) {
-	router.push(path);
+function startGame(path: string, button: 'play' | 'multi') {
+	if (pressedButton.value) return;
+	pressedButton.value = button;
+
+	setTimeout(() => {
+		router.push(path);
+	}, 200);
 }
 
-onMounted(() => {
-	setTimeout(() => {
-		buttonIsVisible.value = true;
-	}, 1000);
-});
-
 </script>
-
+<!-- FARE BOTTONE LOG SU FILE GIUSTO IMMAGINE GIA FATTE E METTERE IL COLORE DEL TESTO GIALLINO A TEMA -->
 <template>
-	<div :class="['button-container', { 'button-visible': buttonIsVisible }]">
-		<button class="play-button" @click="startGame('/game')">
-			<img src="../../public/asset/play_button.png" alt="play" class="play-image"/>
+	<div class="button-container">
+		<button class="play-button" @click="startGame('/game', 'play')">
+			<img :src="pressedButton === 'play'
+                    ? '/asset/playButton/PlayButtonPressed.png'
+                    : '/asset/playButton/PlayButton.png'"
+					alt="play" class="play-image"/>
 		</button>
-		<button class="multi-button" @click="startGame('/lobby')">
-				<img src="../../public/asset/multiplayer_button.png" alt="multiplayer" class="multiplayer-image"/>
+		<button class="multi-button" @click="startGame('/lobby', 'multi')">
+			<img :src="pressedButton === 'multi'
+                    ? '/asset/multi-playerButton/multiButtonPressed.png'
+                    : '/asset/multi-playerButton/multiButton.png'
+					" alt="multiplayer" class="multiplayer-image"/>
 		</button>
 	</div>
 </template>
@@ -37,13 +42,6 @@ onMounted(() => {
 	justify-content: center;
 	align-items: center;
 	width: 100%;
-	gap: 20px;
-}
-
-.button-container.button-visible .play-button,
-.button-container.button-visible .multi-button {
-	opacity: 1;
-	transform: translateX(0);
 }
 
 .play-button, 
@@ -53,17 +51,11 @@ onMounted(() => {
     border: none;
     cursor: pointer;
     width: 250px;
-	opacity: 0;
-	transform: translateX(var(--enter-x));
-	transition: opacity 0.5s ease, transform 0.5s ease;
 }
 
 .play-button {
-	--enter-x: -140px;
-}
-
-.multi-button {
-	--enter-x: 140px;
+	padding-top: 30%;
+	margin-bottom: 30px;
 }
 
 .play-image,
@@ -71,17 +63,14 @@ onMounted(() => {
     display: flex;
     width: 100%;
     height: auto;
-	transition: transform 0.15s ease;
 }
 
-.play-button:hover .play-image,
 .multi-button:hover .multiplayer-image {
-	transform: scale(1.05);
+	opacity: 0.8;
 }
 
-.play-button:active .play-image,
-.multi-button:active .multiplayer-image {
-	transform: scale(0.95);
+.play-button:hover .play-image {
+	opacity: 0.8;
 }
 
 </style>
