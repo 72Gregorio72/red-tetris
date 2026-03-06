@@ -35,7 +35,6 @@ function spawnBlock() {
   const type = Math.floor(Math.random() * TETROMINOS.length);
   const shape = TETROMINOS[type].shape;
   const width = shape[0].length;
-  // Spawn in posizione casuale orizzontale, ma dentro la griglia
   const x = Math.floor(Math.random() * (GRID_COLS - width));
   blocks.value.push({ type, x, y: 0 });
 }
@@ -72,9 +71,7 @@ function rotateBlocksRandomly() {
 }
 
 onMounted(() => {
-  // Spawna subito un blocco
   spawnBlock();
-  // Ogni 600ms: muovi blocchi e ogni tanto spawna uno nuovo
   intervalId = window.setInterval(() => {
     moveBlocksDown();
 	moveBlocksRandomly();
@@ -93,7 +90,6 @@ onUnmounted(() => {
 <template>
   <div class="tetris-bg">
     <div class="grid-pattern"></div>
-    <!-- Blocchi Tetris animati -->
     <div class="falling-blocks">
       <template v-for="(block, idx) in blocks" :key="idx">
         <template v-for="(row, dy) in TETROMINOS[block.type].shape" :key="dy">

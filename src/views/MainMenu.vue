@@ -6,22 +6,32 @@ import Buttons from '../Style/Buttons.vue';
 </script>
 
 <template>
-	<Logo />
-	<Buttons />
-	<div class="menu-container">
-		<!-- <h1 class="title">RED TETRIS</h1> -->
+	<div class="main-menu-page">
+		<Buttons class="menu-container" />
 	</div>
 </template>
 
 <style scoped>
 
+.main-menu-page {
+	width: 100%;
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: flex-start;
+	padding-top: 24px;
+}
+
 .menu-container {
+	background-image: url("../../public/asset/menuHolder.png");
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	width: 100%;
-	height: 100%;
+	width: 24%;
+	height: 55%;
+	padding-bottom: 30px;
 }
 
 
