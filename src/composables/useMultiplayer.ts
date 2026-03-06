@@ -32,6 +32,8 @@ export function useMultiplayer() {
 			multiplayerStore.setGameSeed(seed);
 			multiplayerStore.gameFinished = false;
 			multiplayerStore.gameWinner = null;
+			multiplayerStore.normalGameOver = false;
+			multiplayerStore.normalGameWinner = null;
 			gameStore.setStatus('playing');
 			router.push('/multiplayer');
 		});
@@ -57,7 +59,9 @@ export function useMultiplayer() {
 			multiplayerStore.setOpponentPiece(playerId, cells);
 		});
 
-		on('game:over', () => {
+		on('game:over', ({ winner }: { winner: { id: string; name: string; score: number } | null }) => {
+			multiplayerStore.normalGameOver = true;
+			multiplayerStore.normalGameWinner = winner;
 			gameStore.setStatus('finished');
 		});
 

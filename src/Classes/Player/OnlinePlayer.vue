@@ -43,12 +43,9 @@
         }
 
         if (isPlatformer.value) {
-            // For platformer: track key state; the loop handles continuous movement
+            // For platformer: track key state; the interval loop handles continuous left/right
             if (!keysPressed.has(event.key)) {
                 keysPressed.add(event.key);
-                // Send an immediate action on first press
-                if (event.key === 'ArrowLeft')  emit('game:action', { action: 'left' });
-                if (event.key === 'ArrowRight') emit('game:action', { action: 'right' });
             }
             // Jump / down are still single-fire from keydown
             if (event.code === 'ArrowUp') emit('game:action', { action: 'rotate' });

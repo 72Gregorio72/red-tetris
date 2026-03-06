@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import OnlinePlayer from '../Classes/Player/OnlinePlayer.vue';
 import OpponentPlayer from '../Classes/Player/OpponentPlayer.vue';
 import { useMultiplayer } from '../composables/useMultiplayer';
@@ -12,7 +12,9 @@ const multiplayer = useMultiplayer();
 const multiplayerStore = useMultiplayerStore();
 const { socket } = useSocket();
 const router = useRouter();
-const { platformerMode, playerScores, gameFinished, gameWinner } = storeToRefs(multiplayerStore);
+const { platformerMode, playerScores, gameFinished, gameWinner, normalGameOver, normalGameWinner } = storeToRefs(multiplayerStore);
+
+const isReadyForRematch = ref(false);
 
 const scoreBoard = computed(() => {
     const room = multiplayerStore.currentRoom;
@@ -25,10 +27,28 @@ const scoreBoard = computed(() => {
     })).sort((a, b) => b.score - a.score);
 });
 
+const didIWin = computed(() => {
+    return normalGameWinner.value?.id === socket.value?.id;
+});
+
+const myPlayer = computed(() => {
+    const room = multiplayerStore.currentRoom;
+    if (!room || !socket.value) return null;
+    return room.players.find(p => p.id === socket.value!.id) || null;
+});
+
 function backToLobby() {
     multiplayerStore.gameFinished = false;
     multiplayerStore.gameWinner = null;
+    multiplayerStore.normalGameOver = false;
+    multiplayerStore.normalGameWinner = null;
+    isReadyForRematch.value = false;
     multiplayer.leaveRoom();
+}
+
+function toggleRematchReady() {
+    isReadyForRematch.value = !isReadyForRematch.value;
+    multiplayer.toggleReady(isReadyForRematch.value);
 }
 
 onMounted(() => {
@@ -37,11 +57,43 @@ onMounted(() => {
 
 onUnmounted(() => {
     multiplayer.unregisterListeners();
+    isReadyForRematch.value = false;
 });
 </script>
 
 <template>
-    <!-- Game Finished Overlay -->
+    <!-- Normal Tetris Game Over Overlay -->
+    <div v-if="normalGameOver" class="game-finished-overlay">
+        <div class="finished-card">
+            <h1 class="finished-title" :class="didIWin ? 'title-victory' : 'title-defeat'">
+                {{ didIWin ? 'VICTORY!' : 'DEFEAT' }}
+            </h1>
+            <div v-if="normalGameWinner" class="winner-section">
+                <h2 class="winner-text">&#x1F3C6; {{ normalGameWinner.name }} wins!</h2>
+                <p class="winner-score">Score: {{ normalGameWinner.score }}</p>
+            </div>
+            <div class="rematch-section">
+                <p class="rematch-hint">{{ isReadyForRematch ? 'Waiting for opponent...' : 'Ready for a rematch?' }}</p>
+                <div class="rematch-buttons">
+                    <button
+                        class="ready-button"
+                        :class="{ 'ready-active': isReadyForRematch }"
+                        @click="toggleRematchReady"
+                    >
+                        {{ isReadyForRematch ? '&#x2705; READY' : 'READY' }}
+                    </button>
+                    <button class="leave-button" @click="backToLobby">LEAVE</button>
+                </div>
+                <div v-if="myPlayer" class="player-ready-status">
+                    <span v-for="p in multiplayerStore.currentRoom?.players" :key="p.id" class="ready-dot" :class="{ 'dot-ready': p.isReady }">
+                        {{ p.name }} {{ p.isReady ? '&#x2705;' : '&#x23F3;' }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Platformer Game Finished Overlay -->
     <div v-if="gameFinished" class="game-finished-overlay">
         <div class="finished-card">
             <h1 class="finished-title">GAME OVER</h1>
@@ -63,7 +115,7 @@ onUnmounted(() => {
     </div>
 
     <!-- Shared mode: one grid for both players -->
-    <div v-if="platformerMode && !gameFinished" class="multiplayer-layout shared">
+    <div v-if="platformerMode && !gameFinished && !normalGameOver" class="multiplayer-layout shared">
         <div class="shared-game">
             <p class="shared-label">Shared Grid — Platformer vs Tetris</p>
             <OnlinePlayer />
@@ -71,7 +123,7 @@ onUnmounted(() => {
     </div>
 
     <!-- Normal mode: each player has their own grid -->
-    <div v-else-if="!gameFinished" class="multiplayer-layout">
+    <div v-else-if="!gameFinished && !normalGameOver" class="multiplayer-layout">
         <div class="main-game">
             <OnlinePlayer />
         </div>
@@ -224,5 +276,87 @@ onUnmounted(() => {
 
 .back-button:hover {
     background: #c73e54;
+}
+
+/* Normal Tetris Game Over styles */
+.title-victory {
+    color: #4caf50 !important;
+    text-shadow: 0 0 20px rgba(76, 175, 80, 0.5) !important;
+}
+
+.title-defeat {
+    color: #e94560 !important;
+    text-shadow: 0 0 20px rgba(233, 69, 96, 0.5) !important;
+}
+
+.rematch-section {
+    margin-top: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.rematch-hint {
+    color: #aaa;
+    font-size: 0.95rem;
+    margin: 0;
+}
+
+.rematch-buttons {
+    display: flex;
+    gap: 16px;
+}
+
+.ready-button {
+    padding: 12px 32px;
+    background: #2a6a2e;
+    color: white;
+    border: 2px solid #4caf50;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.ready-button:hover {
+    background: #3a8a3e;
+}
+
+.ready-button.ready-active {
+    background: #4caf50;
+    box-shadow: 0 0 15px rgba(76, 175, 80, 0.4);
+}
+
+.leave-button {
+    padding: 12px 32px;
+    background: #5a2030;
+    color: white;
+    border: 2px solid #e94560;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.leave-button:hover {
+    background: #e94560;
+}
+
+.player-ready-status {
+    display: flex;
+    gap: 16px;
+    margin-top: 8px;
+}
+
+.ready-dot {
+    color: #888;
+    font-size: 0.85rem;
+}
+
+.ready-dot.dot-ready {
+    color: #4caf50;
 }
 </style>
