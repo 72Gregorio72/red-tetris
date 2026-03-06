@@ -61,107 +61,230 @@
 </script>
 
 <template>
-    <div class="game-container">
-        <!-- Score HUD panel on the left -->
-        <div v-if="hasRoundInfo" class="score-hud">
-            <div class="hud-round">
-                <span class="hud-label">ROUND</span>
-                <span class="hud-value">{{ currentRound }} / {{ totalRounds }}</span>
-            </div>
-            <div class="hud-divider"></div>
+    <div class="arcade-cabinet">
+        <!-- Corner screws -->
+        <div class="screw screw-tl"></div>
+        <div class="screw screw-tr"></div>
+        <div class="screw screw-bl"></div>
+        <div class="screw screw-br"></div>
 
-            <!-- Live score for current player -->
-            <div class="hud-my-score">
-                <span class="hud-label">YOUR SCORE</span>
-                <span class="hud-live-score">{{ myPlatformerScore }}</span>
+        <div class="cabinet-body">
+            <!-- Top screws row -->
+            <div class="screw-row screw-row-top">
+                <div class="screw-inner"></div>
+                <div class="screw-inner"></div>
+                <div class="screw-inner"></div>
+                <div class="screw-inner"></div>
             </div>
-            <div class="hud-divider"></div>
 
-            <!-- Bomb counter -->
-            <div class="hud-bombs">
-                <span class="hud-label">BOMBS</span>
-                <div class="hud-bomb-icons">
-                    <span v-for="i in 3" :key="'bomb-' + i" class="bomb-icon" :class="{ 'bomb-used': i > myBombs }">&#x1F4A3;</span>
+            <div class="cabinet-content">
+                <!-- Score HUD panel on the left -->
+                <div class="score-hud" :class="{ 'hud-visible': hasRoundInfo }">
+                    <template v-if="hasRoundInfo">
+                        <div class="hud-section">
+                            <div class="hud-round">
+                                <span class="hud-label">ROUND</span>
+                                <span class="hud-value">{{ currentRound }} / {{ totalRounds }}</span>
+                            </div>
+                        </div>
+                        <div class="hud-divider"></div>
+
+                        <div class="hud-section">
+                            <div class="hud-my-score">
+                                <span class="hud-label">YOUR SCORE</span>
+                                <span class="hud-live-score">{{ myPlatformerScore }}</span>
+                            </div>
+                        </div>
+                        <div class="hud-divider"></div>
+
+                        <div class="hud-section">
+                            <div class="hud-bombs">
+                                <span class="hud-label">BOMBS</span>
+                                <div class="hud-bomb-icons">
+                                    <img v-for="i in 3" :key="'bomb-' + i" src="/asset/GameUi/Bomb.png" class="bomb-icon" :class="{ 'bomb-used': i > myBombs }" alt="bomb" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="hud-divider"></div>
+
+                        <div class="hud-section hud-scores">
+                            <div
+                                v-for="entry in allScores"
+                                :key="entry.id"
+                                class="hud-score-entry"
+                                :class="{ 'hud-me': entry.isMe, 'hud-platformer': entry.isPlatformer }"
+                            >
+                                <span class="hud-player-name">
+                                    {{ entry.name }}
+                                    <span v-if="entry.isPlatformer" class="hud-role"> &#x1F3AE;</span>
+                                    <span v-else class="hud-role"> &#x1F9F1;</span>
+                                </span>
+                                <span class="hud-player-score">{{ entry.score }}</span>
+                            </div>
+                        </div>
+                    </template>
                 </div>
-            </div>
 
-            <div class="hud-divider"></div>
+                <!-- Game grid area -->
+                <div class="grid-frame">
+                    <div class="grid-wrapper">
+                        <div class="grid" :class="{ 'dimmed': !isAlive }">
+                            <template v-for="(row, rIndex) in grid" :key="'r-' + rIndex">
+                                <div
+                                    v-for="(cell, cIndex) in row"
+                                    :key="'c-' + rIndex + '-' + cIndex"
+                                    class="block"
+                                    :class="getBlockClass(cell)"
+                                ></div>
+                            </template>
 
-            <div class="hud-scores">
-                <div
-                    v-for="entry in allScores"
-                    :key="entry.id"
-                    class="hud-score-entry"
-                    :class="{ 'hud-me': entry.isMe, 'hud-platformer': entry.isPlatformer }"
-                >
-                    <span class="hud-player-name">
-                        {{ entry.name }}
-                        <span v-if="entry.isPlatformer" class="hud-role"> &#x1F3AE;</span>
-                        <span v-else class="hud-role"> &#x1F9F1;</span>
-                    </span>
-                    <span class="hud-player-score">{{ entry.score }}</span>
-                </div>
-            </div>
-        </div>
+                            <template v-if="isPlatformer && charParts.length">
+                                <div 
+                                    v-for="(part, index) in charParts" 
+                                    :key="'char-' + index"
+                                    class="character-block"
+                                    :style="{ 
+                                        transform: `translate(${part.x * 30}px, ${part.y * 30}px)` 
+                                    }"
+                                >
+                                    <div v-if="part.isHead" class="eyes">
+                                        <div class="eye"></div>
+                                        <div class="eye"></div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
 
-        <div class="grid-wrapper">
-            <div class="grid" :class="{ 'dimmed': !isAlive }">
-                <template v-for="(row, rIndex) in grid" :key="'r-' + rIndex">
-                    <div
-                        v-for="(cell, cIndex) in row"
-                        :key="'c-' + rIndex + '-' + cIndex"
-                        class="block"
-                        :class="getBlockClass(cell)"
-                    ></div>
-                </template>
-
-                <template v-if="isPlatformer && charParts.length">
-                    <div 
-                        v-for="(part, index) in charParts" 
-                        :key="'char-' + index"
-                        class="character-block"
-                        :style="{ 
-                            transform: `translate(${part.x * 30}px, ${part.y * 30}px)` 
-                        }"
-                    >
-                        <div v-if="part.isHead" class="eyes">
-                            <div class="eye"></div>
-                            <div class="eye"></div>
+                        <div v-if="!isAlive" class="game-over-overlay">
+                            <h1 class="game-over-text">GAME OVER</h1>
                         </div>
                     </div>
-                </template>
+                </div>
             </div>
 
-            <div v-if="!isAlive" class="game-over-overlay">
-                <h1 class="game-over-text">GAME OVER</h1>
+            <!-- Bottom detail bar -->
+            <div class="cabinet-bottom">
+                <div class="vent-grille">
+                    <div class="vent-line"></div>
+                    <div class="vent-line"></div>
+                    <div class="vent-line"></div>
+                    <div class="vent-line"></div>
+                    <div class="vent-line"></div>
+                </div>
+                <div class="bottom-screws">
+                    <div class="screw-inner"></div>
+                    <div class="screw-inner"></div>
+                </div>
             </div>
         </div>
     </div>
 </template>
 
 <style scoped>
-	.game-container {
-		display: flex;
-		justify-content: center;
-		align-items: flex-start;
-		background-color: #1a1a1a;
-		padding: 20px;
-		border-radius: 8px;
-		gap: 16px;
+	/* ===== PIXEL ART FOUNDATION ===== */
+	* {
+		image-rendering: pixelated;
 	}
 
-	/* Score HUD */
+	/* ===== ARCADE CABINET OUTER SHELL ===== */
+	.arcade-cabinet {
+		position: relative;
+		display: inline-block;
+		background: #7a4e2d;
+		padding: 10px;
+		border: 4px solid #5a3018;
+		box-shadow:
+			4px 4px 0 #3a1a08,
+			-2px -2px 0 #a07050,
+			inset 2px 2px 0 #9a6a40,
+			inset -2px -2px 0 #5a3018;
+		margin-top: 60px;
+	}
+
+	/* ===== CORNER SCREWS (pixel circles) ===== */
+	.screw {
+		position: absolute;
+		width: 12px;
+		height: 12px;
+		background: #8a6040;
+		border: 2px solid #4a2a15;
+		z-index: 10;
+		box-shadow:
+			inset 2px 2px 0 #b08060,
+			inset -2px -2px 0 #3a1a08;
+	}
+	.screw::after {
+		content: '';
+		position: absolute;
+		top: 4px;
+		left: 2px;
+		width: 8px;
+		height: 2px;
+		background: #3a1a08;
+	}
+	.screw-tl { top: 4px; left: 4px; }
+	.screw-tr { top: 4px; right: 4px; }
+	.screw-bl { bottom: 4px; left: 4px; }
+	.screw-br { bottom: 4px; right: 4px; }
+
+	/* ===== CABINET BODY (DARK PANEL) ===== */
+	.cabinet-body {
+		background: #2c2830;
+		padding: 12px 14px 10px;
+		border: 3px solid #3a3340;
+		box-shadow:
+			inset 2px 2px 0 #1a1620,
+			inset -2px -2px 0 #4a4350;
+	}
+
+	/* ===== TOP SCREW ROW ===== */
+	.screw-row {
+		display: flex;
+		justify-content: space-between;
+		padding: 0 6px;
+		margin-bottom: 10px;
+	}
+	.screw-inner {
+		width: 8px;
+		height: 8px;
+		background: #7a5535;
+		border: 2px solid #3a1a08;
+		box-shadow:
+			inset 2px 2px 0 #a08060;
+	}
+	.screw-inner::after {
+		content: '';
+		display: block;
+		width: 4px;
+		height: 2px;
+		background: #2a0a00;
+		margin: 2px auto 0;
+	}
+
+	/* ===== MAIN CONTENT AREA ===== */
+	.cabinet-content {
+		display: flex;
+		gap: 12px;
+		align-items: stretch;
+	}
+
+	/* ===== LEFT SCORE HUD (INFO PANEL) ===== */
 	.score-hud {
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
-		background: #111;
-		border: 2px solid #333;
-		border-radius: 10px;
-		padding: 14px 16px;
-		min-width: 140px;
-		align-self: flex-start;
-		margin-top: 4px;
+		gap: 0;
+		background: #1e1a22;
+		border: 3px solid #3a3340;
+		padding: 10px 12px;
+		min-width: 150px;
+		max-width: 160px;
+		box-shadow:
+			inset 2px 2px 0 #141018,
+			inset -2px -2px 0 #2a2630;
+	}
+
+	.hud-section {
+		padding: 8px 0;
 	}
 
 	.hud-round {
@@ -171,38 +294,43 @@
 	}
 
 	.hud-label {
-		font-size: 0.65rem;
-		color: #777;
-		letter-spacing: 0.15em;
+		font-size: 0.6rem;
+		color: #8a7a6a;
+		letter-spacing: 0.18em;
 		text-transform: uppercase;
 		font-weight: bold;
+		font-family: 'Courier New', monospace;
 	}
 
 	.hud-value {
 		font-size: 1.1rem;
-		color: #fff;
+		color: #d4a574;
 		font-weight: bold;
+		font-family: 'Courier New', monospace;
+		text-shadow: 2px 2px 0 #1a0a00;
 	}
 
 	.hud-divider {
-		height: 1px;
-		background: #333;
+		height: 2px;
+		background: #6b4c30;
 		margin: 2px 0;
+		border-top: 1px solid #8a6545;
+		border-bottom: 1px solid #4a2a15;
 	}
 
 	.hud-my-score {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		padding: 6px 0;
+		padding: 4px 0;
 	}
 
 	.hud-live-score {
-		font-size: 2rem;
-		color: #4caf50;
+		font-size: 1.8rem;
+		color: #d4a574;
 		font-weight: bold;
 		font-family: 'Courier New', monospace;
-		text-shadow: 0 0 12px rgba(76, 175, 80, 0.6);
+		text-shadow: 2px 2px 0 #1a0a00;
 		transition: all 0.15s ease-out;
 		line-height: 1;
 	}
@@ -210,7 +338,8 @@
 	.hud-scores {
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
+		gap: 4px;
+		padding-top: 6px;
 	}
 
 	/* Bomb counter */
@@ -218,22 +347,25 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		padding: 4px 0;
+		padding: 2px 0;
 	}
 
 	.hud-bomb-icons {
 		display: flex;
-		gap: 6px;
-		font-size: 1.4rem;
+		gap: -100px;
 		margin-top: 4px;
 	}
 
 	.bomb-icon {
-		transition: opacity 0.3s, filter 0.3s;
+		width: 100px;
+		height: 50px;
+		image-rendering: pixelated;
+		transition: opacity 0.3s;
+		margin: 0 -25px;
 	}
 
 	.bomb-icon.bomb-used {
-		opacity: 0.2;
+		opacity: 0.15;
 		filter: grayscale(1);
 	}
 
@@ -241,53 +373,69 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: 5px 8px;
-		background: #1a1a2e;
-		border-radius: 6px;
-		border: 1px solid #222;
-		transition: border-color 0.3s;
+		padding: 3px 5px;
+		background: #161218;
+		border: 2px solid #3a3340;
+		box-shadow: inset 1px 1px 0 #0a0610;
 	}
 
 	.hud-score-entry.hud-me {
-		border-color: #4caf50;
+		border-color: #8a6545;
+		background: #221a28;
 	}
 
 	.hud-score-entry.hud-platformer {
-		background: #2a1a2e;
+		background: #221018;
 	}
 
 	.hud-player-name {
-		color: #ccc;
-		font-size: 0.8rem;
+		color: #a09080;
+		font-size: 0.75rem;
 		font-weight: 600;
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		max-width: 85px;
+		max-width: 80px;
+		font-family: 'Courier New', monospace;
 	}
 
 	.hud-me .hud-player-name {
-		color: #4caf50;
+		color: #d4a574;
 	}
 
 	.hud-role {
-		font-size: 0.7rem;
+		font-size: 0.65rem;
 	}
 
 	.hud-player-score {
-		color: #ffd700;
-		font-size: 1rem;
+		color: #d4a574;
+		font-size: 0.9rem;
 		font-weight: bold;
 		font-family: 'Courier New', monospace;
-		min-width: 30px;
+		min-width: 28px;
 		text-align: right;
+		text-shadow: 1px 1px 0 #1a0a00;
+	}
+
+	/* ===== GAME GRID FRAME (RIGHT PANEL) ===== */
+	.grid-frame {
+		background: #8a6040;
+		padding: 6px;
+		border: 3px solid #5a3018;
+		box-shadow:
+			inset 2px 2px 0 #b08868,
+			inset -2px -2px 0 #4a2a10,
+			3px 3px 0 #3a1a08;
 	}
 
 	.grid-wrapper {
-		position: relative; /* Essenziale per il posizionamento absolute del personaggio */
-		border: 4px solid #333;
-		background-color: #000;
-		line-height: 0; /* Rimuove gap tra i div della griglia */
+		position: relative;
+		background-color: #08080a;
+		border: 3px solid #2a2630;
+		line-height: 0;
+		box-shadow:
+			inset 2px 2px 0 #000,
+			inset -2px -2px 0 #1a1620;
 	}
 
 	.grid {
@@ -306,36 +454,39 @@
 	.block {
 		width: 30px;
 		height: 30px;
-		border: 1px solid rgba(255, 255, 255, 0.05);
+		border: 1px solid rgba(255, 255, 255, 0.02);
 		box-sizing: border-box;
 	}
 
-	/* Classi per i pezzi Tetris */
+	/* Classi per i pezzi Tetris — pixel style: no border-radius, hard inset shadows */
 	.empty { background-color: transparent; }
-	.penalty { background-color: #444; border: 1px solid #666; }
-	.piece-1 { background-color: #00FFFF; border: 2px solid #fff; border-radius: 4px; }
-	.piece-2 { background-color: #FFFF00; border: 2px solid #fff; border-radius: 4px; }
-	.piece-3 { background-color: #800080; border: 2px solid #fff; border-radius: 4px; }
-	.piece-4 { background-color: #00FF00; border: 2px solid #fff; border-radius: 4px; }
-	.piece-5 { background-color: #FF0000; border: 2px solid #fff; border-radius: 4px; }
-	.piece-6 { background-color: #0000FF; border: 2px solid #fff; border-radius: 4px; }
-	.piece-7 { background-color: #FFA500; border: 2px solid #fff; border-radius: 4px; }
+	.penalty { background-color: #3a3340; border: 2px solid #4a4350; box-shadow: inset 2px 2px 0 #4a4350, inset -2px -2px 0 #2a2330; }
+	.piece-1 { background-color: #00BBCC; border: 2px solid #00EEFF; box-shadow: inset 2px 2px 0 #44FFFF, inset -2px -2px 0 #008899; }
+	.piece-2 { background-color: #CCBB00; border: 2px solid #EEDD00; box-shadow: inset 2px 2px 0 #FFFF44, inset -2px -2px 0 #998800; }
+	.piece-3 { background-color: #770077; border: 2px solid #AA00AA; box-shadow: inset 2px 2px 0 #CC44CC, inset -2px -2px 0 #550055; }
+	.piece-4 { background-color: #00BB00; border: 2px solid #00EE00; box-shadow: inset 2px 2px 0 #44FF44, inset -2px -2px 0 #008800; }
+	.piece-5 { background-color: #BB0000; border: 2px solid #EE0000; box-shadow: inset 2px 2px 0 #FF4444, inset -2px -2px 0 #880000; }
+	.piece-6 { background-color: #0000BB; border: 2px solid #0000EE; box-shadow: inset 2px 2px 0 #4444FF, inset -2px -2px 0 #000088; }
+	.piece-7 { background-color: #BB7700; border: 2px solid #EE9900; box-shadow: inset 2px 2px 0 #FFBB44, inset -2px -2px 0 #885500; }
 
-	/* Stile Personaggio Platformer */
+	/* Stile Personaggio Platformer — pixel style */
 	.character-block {
 		position: absolute;
 		top: 0;
 		left: 0;
 		width: 30px;
 		height: 30px;
-		background-color: #FF00FF; /* Magenta */
-		border: 2px solid #FFF;
+		background-color: #DD00DD;
+		border: 2px solid #FF44FF;
 		box-sizing: border-box;
 		z-index: 100;
-		transition: transform 0.05s linear; /* Movimento fluido a 60fps */
+		transition: transform 0.05s linear;
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		box-shadow:
+			inset 2px 2px 0 #FF88FF,
+			inset -2px -2px 0 #880088;
 	}
 
 	.eyes {
@@ -349,7 +500,7 @@
 		width: 6px;
 		height: 6px;
 		background-color: white;
-		border-radius: 50%;
+		border: 1px solid #aaa;
 	}
 
 	/* UI Game Over */
@@ -359,7 +510,7 @@
 		left: 0;
 		width: 100%;
 		height: 100%;
-		background: rgba(0, 0, 0, 0.7);
+		background: rgba(0, 0, 0, 0.8);
 		display: flex;
 		justify-content: center;
 		align-items: center;
@@ -367,12 +518,40 @@
 	}
 
 	.game-over-text {
-		color: #ff4444;
-		font-family: 'Arial Black', sans-serif;
-		font-size: 2rem;
-		text-shadow: 2px 2px #000;
-		border: 3px solid #ff4444;
+		color: #ee3333;
+		font-family: 'Courier New', monospace;
+		font-size: 1.8rem;
+		font-weight: bold;
+		text-shadow: 3px 3px 0 #000;
+		border: 4px solid #ee3333;
 		padding: 10px 20px;
-		transform: rotate(-5deg);
+		background: #0a0a0a;
+		box-shadow: 4px 4px 0 #880000;
+	}
+
+	/* ===== BOTTOM DETAIL BAR ===== */
+	.cabinet-bottom {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-top: 10px;
+		padding: 0 6px;
+	}
+
+	.vent-grille {
+		display: flex;
+		gap: 3px;
+	}
+
+	.vent-line {
+		width: 3px;
+		height: 12px;
+		background: #141018;
+		border: 1px solid #2a2430;
+	}
+
+	.bottom-screws {
+		display: flex;
+		gap: 10px;
 	}
 </style>

@@ -211,6 +211,10 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 			const RISING_LINE_INTERVAL = 6000;
 			const RISING_GAP_SIZE = 0;
 
+			// Rising lines only apply when there is a platformer in the room
+			const hasPlatformerInRoom = room.players.some((p: IPlayer) => p.isPlatformer);
+
+			if (hasPlatformerInRoom) {
 			const lastRisingLine = roomLastRisingLine.get(room.id) || now;
 			if (now - lastRisingLine >= RISING_LINE_INTERVAL) {
 				roomLastRisingLine.set(room.id, now);
@@ -243,6 +247,7 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 					globalStateChanged = true;
 				}
 			}
+			} // end hasPlatformerInRoom
 
 			if (roomMode.get(room.id) === 'shared') {
 				// Shared mode: process tetris gravity and platformer physics on the single shared engine
