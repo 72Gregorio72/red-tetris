@@ -76,6 +76,11 @@ function toggleReady() {
 }
 
 function startGame() {
+	if (!currentRoom.value) return;
+	if (currentRoom.value.players.length < 2) {
+		alert('At least 2 players are required to start the game.');
+		return;
+	}
   multiplayer.setPlatformerMode(platformerMode.value);
   multiplayer.startGame();
 }

@@ -18,6 +18,7 @@
 		isMovingDown: boolean;
 		isRotate: boolean;
 		isHardDrop: boolean;
+		key: number;
 	}>();
 
 	const shapeOffsets = ref(

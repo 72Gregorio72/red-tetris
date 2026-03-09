@@ -293,6 +293,21 @@ export class GameEngine {
     const gridCopy = this.state.grid.map(row => [...row]);
     const p = this.state.currentPiece;
     if (p) {
+      // Draw ghost (drop shadow) first — code 9
+      let ghostRow = p.row;
+      while (this.canPlace(ghostRow + 1, p.col, p.type, p.rotation)) {
+        ghostRow++;
+      }
+      if (ghostRow !== p.row) {
+        const ghostCells = this.getCells(ghostRow, p.col, p.type, p.rotation);
+        for (const [r, c] of ghostCells) {
+          if (r >= 0 && r < ROWS && c >= 0 && c < COLS && gridCopy[r][c] === 0) {
+            gridCopy[r][c] = 9;
+          }
+        }
+      }
+
+      // Draw actual piece on top
       const cells = this.getCells(p.row, p.col, p.type, p.rotation);
       const code = PIECE_CODES[p.type];
       for (const [r, c] of cells) {
