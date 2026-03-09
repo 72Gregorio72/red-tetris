@@ -42,6 +42,8 @@ export function useMultiplayer() {
 			multiplayerStore.currentRound = round;
 			multiplayerStore.totalRounds = totalRounds;
 			multiplayerStore.playerScores = scores;
+			// Clear round-end overlay when the new round actually starts
+			multiplayerStore.roundEndInfo = null;
 		});
 
 		on('game:finished', ({ winner, scores }: { winner: { id: string; name: string; score: number } | null; scores: Record<string, number> }) => {
@@ -65,6 +67,10 @@ export function useMultiplayer() {
 			gameStore.setStatus('finished');
 		});
 
+		on('game:round_end', (data: any) => {
+			multiplayerStore.roundEndInfo = data;
+		});
+
 		on('player:registered', (player) => {
 			playerStore.setPlayer(player);
 		});
@@ -85,6 +91,7 @@ export function useMultiplayer() {
 		off('game:opponent_grid');
 		off('game:opponent_piece');
 		off('game:over');
+		off('game:round_end');
 		off('player:registered');
 		off('game:attack');
 	}

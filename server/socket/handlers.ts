@@ -24,7 +24,9 @@ const playerLastScoreIncrement = new Map<string, number>();
 const roomLastRisingLine = new Map<string, number>();
 const playerBombs = new Map<string, number>();
 const roomSeed = new Map<string, string>();
+const roomPaused = new Map<string, boolean>();
 const INITIAL_BOMBS = 3;
+const ROUND_END_PAUSE_MS = 3000;
 
 export function registerSocketHandlers(io: Server, socket: Socket) {
 	console.log(`[Socket] Client connected: ${socket.id}`);
@@ -285,6 +287,7 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 	});
 
 	function gameLoopTick(room: any) {
+			if (roomPaused.get(room.id)) return;
 			const now = Date.now();
 			let globalStateChanged = false;
 
@@ -376,7 +379,7 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 					// Platformer char moves at double the tetris fall rate
 					if (platformerPlayer) {
 						checkPlatformerCollision(sharedEngine);
-						const platformerInterval = sharedEngine.getFallInterval() / 100;
+						const platformerInterval = sharedEngine.getFallInterval() / 10;
 						const lastPlatformerFall = playerLastPlatformerFall.get(platformerPlayer.id) || now;
 						const fallinterval = sharedEngine.getFallInterval();
 						const jumpInterval = fallinterval / 10;
@@ -558,6 +561,7 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 			roomTotalRounds.delete(room.id);
 			roomLastRisingLine.delete(room.id);
 			roomSeed.delete(room.id);
+			roomPaused.delete(room.id);
 			room.players.forEach((p: IPlayer) => {
 					playerPlatformerScore.delete(p.id);
 				playerLastScoreIncrement.delete(p.id);
@@ -640,14 +644,30 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 			});
 		}
 
-		// Notify clients of role swap, round update, and new game state
-		io.to(room.id).emit('room:players_updated', room.players);
-		io.to(room.id).emit('game:round_update', {
-			round: nextRound,
+		// Pause the game loop and show round-end feedback
+		roomPaused.set(room.id, true);
+
+		// Determine who died (the old platformer) and who is the new platformer
+		io.to(room.id).emit('game:round_end', {
+			round: currentRound,
+			nextRound,
 			totalRounds,
 			scores,
+			reason: 'platformer_died',
+			newPlatformer: { id: currentTetris.id, name: currentTetris.name },
+			newTetris: { id: currentPlatformer.id, name: currentPlatformer.name },
 		});
-		broadcastRoomState(io, room);
+
+		setTimeout(() => {
+			roomPaused.set(room.id, false);
+			io.to(room.id).emit('room:players_updated', room.players);
+			io.to(room.id).emit('game:round_update', {
+				round: nextRound,
+				totalRounds,
+				scores,
+			});
+			broadcastRoomState(io, room);
+		}, ROUND_END_PAUSE_MS);
 	}
 
 	function tetrisDead() {
@@ -716,6 +736,7 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 			roomTotalRounds.delete(room.id);
 			roomLastRisingLine.delete(room.id);
 			roomSeed.delete(room.id);
+			roomPaused.delete(room.id);
 			room.players.forEach((p: IPlayer) => {
 				playerPlatformerScore.delete(p.id);
 				playerLastScoreIncrement.delete(p.id);
@@ -788,13 +809,29 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 			});
 		}
 
-		io.to(room.id).emit('room:players_updated', room.players);
-		io.to(room.id).emit('game:round_update', {
-			round: nextRound,
+		// Pause the game loop and show round-end feedback
+		roomPaused.set(room.id, true);
+
+		io.to(room.id).emit('game:round_end', {
+			round: currentRound,
+			nextRound,
 			totalRounds,
 			scores,
+			reason: 'tetris_died',
+			newPlatformer: { id: currentTetris.id, name: currentTetris.name },
+			newTetris: { id: currentPlatformer.id, name: currentPlatformer.name },
 		});
-		broadcastRoomState(io, room);
+
+		setTimeout(() => {
+			roomPaused.set(room.id, false);
+			io.to(room.id).emit('room:players_updated', room.players);
+			io.to(room.id).emit('game:round_update', {
+				round: nextRound,
+				totalRounds,
+				scores,
+			});
+			broadcastRoomState(io, room);
+		}, ROUND_END_PAUSE_MS);
 	}
 
 	function handleNormalTetrisGameOver(room: any) {
@@ -1104,6 +1141,7 @@ function handleLeaveRoom(io: Server, socket: Socket) {
 		roomTotalRounds.delete(result.room.id);
 		roomLastRisingLine.delete(result.room.id);
 		roomSeed.delete(result.room.id);
+		roomPaused.delete(result.room.id);
 	} else {
 		io.to(result.room.id).emit('room:players_updated', result.room.players);
 		io.to(result.room.id).emit('room:player_left', socket.id);

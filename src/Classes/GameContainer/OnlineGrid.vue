@@ -58,6 +58,22 @@
 		if (cellValue === 8) return 'penalty'; // Linee di disturbo grigie
 		return `piece-${cellValue}`;
 	};
+
+	// Round-end transition info
+	const roundEndInfo = computed(() => multiplayerStore.roundEndInfo);
+	const roundEndReason = computed(() => {
+		if (!roundEndInfo.value) return '';
+		return roundEndInfo.value.reason === 'platformer_died' 
+			? 'PLATFORMER ELIMINATED!' 
+			: 'TETRIS PLAYER DOWN!';
+	});
+	const roundEndMyRole = computed(() => {
+		if (!roundEndInfo.value || !socket.value) return '';
+		const myId = socket.value.id;
+		if (roundEndInfo.value.newPlatformer.id === myId) return 'PLATFORMER';
+		if (roundEndInfo.value.newTetris.id === myId) return 'TETRIS';
+		return '';
+	});
 </script>
 
 <template>
@@ -157,6 +173,15 @@
 
                         <div v-if="!isAlive" class="game-over-overlay">
                             <h1 class="game-over-text">GAME OVER</h1>
+                        </div>
+
+                        <!-- Round-end transition overlay -->
+                        <div v-if="roundEndInfo" class="round-end-overlay">
+                            <div class="round-end-content">
+                                <p class="round-end-reason">{{ roundEndReason }}</p>
+                                <div class="round-end-divider"></div>
+                                <p class="round-end-role">YOU ARE NOW <span class="role-highlight" :class="roundEndMyRole.toLowerCase()">{{ roundEndMyRole }}</span></p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -527,6 +552,110 @@
 		padding: 10px 20px;
 		background: #0a0a0a;
 		box-shadow: 4px 4px 0 #880000;
+	}
+
+	/* ===== ROUND END OVERLAY ===== */
+	.round-end-overlay {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background: rgba(0, 0, 0, 0.88);
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		z-index: 250;
+		animation: roundEndFadeIn 0.3s ease-out;
+	}
+
+	@keyframes roundEndFadeIn {
+		from { opacity: 0; }
+		to { opacity: 1; }
+	}
+
+	@keyframes roundEndPulse {
+		0%, 100% { transform: scale(1); }
+		50% { transform: scale(1.05); }
+	}
+
+	.round-end-content {
+		text-align: center;
+		font-family: 'Courier New', monospace;
+		padding: 16px 24px;
+		background: #1a1a2e;
+		border: 4px solid #00EEFF;
+		box-shadow:
+			0 0 20px rgba(0, 238, 255, 0.3),
+			inset 0 0 20px rgba(0, 238, 255, 0.05),
+			6px 6px 0 #0a0a1a;
+	}
+
+	.round-end-title {
+		color: #00EEFF;
+		font-size: 1.4rem;
+		font-weight: bold;
+		text-shadow: 2px 2px 0 #005566;
+		margin: 0 0 6px 0;
+		animation: roundEndPulse 1.5s ease-in-out infinite;
+	}
+
+	.round-end-reason {
+		color: #ff6644;
+		font-size: 0.85rem;
+		font-weight: bold;
+		text-shadow: 1px 1px 0 #662200;
+		margin: 0 0 10px 0;
+	}
+
+	.round-end-divider {
+		width: 80%;
+		height: 2px;
+		background: linear-gradient(90deg, transparent, #00EEFF, transparent);
+		margin: 8px auto;
+	}
+
+	.round-end-swap {
+		color: #EEDD00;
+		font-size: 0.9rem;
+		font-weight: bold;
+		text-shadow: 1px 1px 0 #665500;
+		margin: 8px 0 4px 0;
+		letter-spacing: 2px;
+	}
+
+	.round-end-role {
+		color: #cccccc;
+		font-size: 0.8rem;
+		margin: 4px 0 10px 0;
+	}
+
+	.role-highlight {
+		font-weight: bold;
+		font-size: 1rem;
+		padding: 2px 8px;
+		border: 2px solid;
+	}
+
+	.role-highlight.platformer {
+		color: #00EE00;
+		border-color: #00EE00;
+		text-shadow: 1px 1px 0 #005500;
+		background: rgba(0, 238, 0, 0.1);
+	}
+
+	.role-highlight.tetris {
+		color: #00BBCC;
+		border-color: #00BBCC;
+		text-shadow: 1px 1px 0 #004455;
+		background: rgba(0, 187, 204, 0.1);
+	}
+
+	.round-end-next {
+		color: #aaaaaa;
+		font-size: 0.75rem;
+		margin-top: 4px;
+		letter-spacing: 1px;
 	}
 
 	/* ===== BOTTOM DETAIL BAR ===== */

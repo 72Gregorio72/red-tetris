@@ -96,7 +96,8 @@ onUnmounted(() => {
     <!-- Platformer Game Finished Overlay -->
     <div v-if="gameFinished" class="game-finished-overlay">
         <div class="finished-card">
-            <h1 class="finished-title">GAME OVER</h1>
+            <h1 v-if="gameWinner?.id !== socket?.id" class="finished-title title-defeat">DEFEAT</h1>
+            <h1 v-else class="finished-title title-victory">VICTORY!</h1>
             <div v-if="gameWinner" class="winner-section">
                 <h2 class="winner-text">🏆 {{ gameWinner.name }} wins!</h2>
                 <p class="winner-score">Score: {{ gameWinner.score }}</p>

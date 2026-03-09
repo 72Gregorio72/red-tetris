@@ -65,6 +65,17 @@ export const useMultiplayerStore = defineStore('multiplayer', () => {
   // Normal tetris game over state
   const normalGameOver = ref(false);
   const normalGameWinner = ref<{ id: string; name: string; score: number } | null>(null);
+
+  // Round-end transition info
+  const roundEndInfo = ref<{
+    round: number;
+    nextRound: number;
+    totalRounds: number;
+    reason: string;
+    newPlatformer: { id: string; name: string };
+    newTetris: { id: string; name: string };
+    scores: Record<string, number>;
+  } | null>(null);
   
 
   const isHost = computed(() => {
@@ -148,6 +159,7 @@ export const useMultiplayerStore = defineStore('multiplayer', () => {
 	myBombs.value = INITIAL_BOMBS;
 	normalGameOver.value = false;
 	normalGameWinner.value = null;
+	roundEndInfo.value = null;
 
 	for (const key in opponents) {
 		delete opponents[key];
@@ -164,6 +176,6 @@ export const useMultiplayerStore = defineStore('multiplayer', () => {
     setOpponentGrid, setOpponentPiece, removeOpponent, setGameSeed, reset,
 	updateBlockPosition, myGameState, opponentsState, isAlive, myDisplayGrid, player, charPos,
 	currentRound, totalRounds, playerScores, gameFinished, gameWinner, myPlatformerScore, myBombs,
-	normalGameOver, normalGameWinner
+	normalGameOver, normalGameWinner, roundEndInfo
   };
 });
