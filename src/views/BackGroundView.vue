@@ -97,10 +97,10 @@ onUnmounted(() => {
             <div
               v-if="cell"
               class="tetris-block"
+              :class="'piece-' + (block.type + 1)"
               :style="{
                 left: (block.x + dx) * GRID_SIZE + 'px',
-                top: (block.y + dy) * GRID_SIZE + 'px',
-                background: TETROMINOS[block.type].color
+                top: (block.y + dy) * GRID_SIZE + 'px'
               }"
             ></div>
           </template>
@@ -145,11 +145,18 @@ onUnmounted(() => {
   position: absolute;
   width: 24px;
   height: 24px;
-  border-radius: 4px;
-  box-shadow: 0 0 4px #0008;
+  box-sizing: border-box;
   opacity: 0.3;
   transition: none;
 }
+
+.piece-1 { background-color: #00BBCC; border: 2px solid #00EEFF; box-shadow: inset 2px 2px 0 #44FFFF, inset -2px -2px 0 #008899; }
+.piece-2 { background-color: #CCBB00; border: 2px solid #EEDD00; box-shadow: inset 2px 2px 0 #FFFF44, inset -2px -2px 0 #998800; }
+.piece-3 { background-color: #770077; border: 2px solid #AA00AA; box-shadow: inset 2px 2px 0 #CC44CC, inset -2px -2px 0 #550055; }
+.piece-4 { background-color: #00BB00; border: 2px solid #00EE00; box-shadow: inset 2px 2px 0 #44FF44, inset -2px -2px 0 #008800; }
+.piece-5 { background-color: #BB0000; border: 2px solid #EE0000; box-shadow: inset 2px 2px 0 #FF4444, inset -2px -2px 0 #880000; }
+.piece-6 { background-color: #0000BB; border: 2px solid #0000EE; box-shadow: inset 2px 2px 0 #4444FF, inset -2px -2px 0 #000088; }
+.piece-7 { background-color: #BB7700; border: 2px solid #EE9900; box-shadow: inset 2px 2px 0 #FFBB44, inset -2px -2px 0 #885500; }
 
 .grid-pattern {
   position: absolute;

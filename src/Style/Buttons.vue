@@ -4,10 +4,15 @@ import { ref } from 'vue';
 
 const pressedButton = ref< 'play' | 'multi' | null >(null); 
 const router = useRouter();
+const sfxbutton = new Audio('/asset/music/buttonClick_SFX.wav') 
+
+sfxbutton.volume = 0.5;
 
 function startGame(path: string, button: 'play' | 'multi') {
 	if (pressedButton.value) return;
 	pressedButton.value = button;
+	sfxbutton.currentTime = 0;
+	sfxbutton.play().catch(() => {});
 
 	setTimeout(() => {
 		router.push(path);

@@ -28,6 +28,10 @@ const pressedNotReady = ref< 'notReady' | null >(null);
 const pressedStart = ref< 'start' | null >(null);
 const pressedLeave = ref< 'leave' | null >(null);
 
+const sfxbutton = new Audio('/asset/music/buttonClick_SFX.wav') 
+
+sfxbutton.volume = 0.5;
+
 onMounted(() => {
 	connect();
 	multiplayer.registerListeners();
@@ -41,7 +45,9 @@ function register(button: 'log' | null = null) {
   if (playerName.value.trim()) {
     if (pressedLog.value) return;
     pressedLog.value = button;
-  
+    sfxbutton.currentTime = 0;
+    sfxbutton.play().catch(() => {});
+
     if (playerName.value.length > 12) {
       alert('Player name must be 12 characters or less.');
       pressedLog.value = null;
@@ -57,6 +63,8 @@ function createRoom() {
   if (newRoomName.value.trim()) {
     if (pressedCreate.value) return;
     pressedCreate.value = 'create';
+    sfxbutton.currentTime = 0;
+    sfxbutton.play().catch(() => {});
     if (newRoomName.value.length > 12) {
       alert('Room name must be 12 characters or less.');
       pressedCreate.value = null;
@@ -74,6 +82,8 @@ function createRoom() {
 function joinRoom(roomId: string) {
   if (pressedJoin.value) return;
   pressedJoin.value = roomId;
+  sfxbutton.currentTime = 0;
+  sfxbutton.play().catch(() => {});
   setTimeout(() => {
     multiplayer.joinRoom(roomId);
     pressedJoin.value = null;
@@ -83,6 +93,8 @@ function joinRoom(roomId: string) {
 function refreshRooms() {
   if (pressedRefresh.value) return;
   pressedRefresh.value = 'refresh';
+  sfxbutton.currentTime = 0;
+  sfxbutton.play().catch(() => {});
   setTimeout(() => {
     multiplayer.fetchRooms();
     pressedRefresh.value = null;
@@ -95,6 +107,8 @@ function toggleReady() {
   if (goingReady) {
     if (pressedReady.value) return;
     pressedReady.value = 'ready';
+    sfxbutton.currentTime = 0;
+    sfxbutton.play().catch(() => {});
     setTimeout(() => {
       multiplayer.toggleReady(true);
       pressedReady.value = null;
@@ -102,6 +116,8 @@ function toggleReady() {
   } else {
     if (pressedNotReady.value) return;
     pressedNotReady.value = 'notReady';
+    sfxbutton.currentTime = 0;
+    sfxbutton.play().catch(() => {});
     setTimeout(() => {
       multiplayer.toggleReady(false);
       pressedNotReady.value = null;
@@ -112,6 +128,8 @@ function toggleReady() {
 function startGame() {
   if (pressedStart.value) return;
   pressedStart.value = 'start';
+  sfxbutton.currentTime = 0;
+  sfxbutton.play().catch(() => {});
   setTimeout(() => {
     multiplayer.setPlatformerMode(platformerMode.value);
     multiplayer.startGame();
@@ -122,6 +140,8 @@ function startGame() {
 function leaveRoom() {
   if (pressedLeave.value) return;
   pressedLeave.value = 'leave';
+  sfxbutton.currentTime = 0;
+  sfxbutton.play().catch(() => {});
   setTimeout(() => {
     multiplayer.leaveRoom();
     pressedLeave.value = null;
@@ -228,7 +248,7 @@ function leaveRoom() {
       <div class="room-actions">
         <button class="ready-button" @click="toggleReady">
           <img
-            v-if="pressedReady ? false : pressedNotReady ? true : !player?.isReady"
+            v-if="pressedReady ? true : pressedNotReady ? false : player?.isReady"
             :src="pressedReady
               ? '/asset/readyButton/readyButtonPressed.png'
               : '/asset/readyButton/readyButton.png'"

@@ -22,6 +22,10 @@ export function useMultiplayer() {
 
 		on('room:players_updated', (players) => {
 			multiplayerStore.updatePlayers(players);
+			const me = players.find((p: any) => p.id === playerStore.player?.id);
+			if (me && playerStore.player) {
+				playerStore.player.isReady = me.isReady;
+			}
 		});
 
 		on('room:player_left', (playerId: string) => {
