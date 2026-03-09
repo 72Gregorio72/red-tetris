@@ -118,8 +118,6 @@
                                 <h1 class="game-over-text">GAME OVER</h1>
                                 <div class="game-over-stats">
                                     <p class="stat-line">SCORE: <span class="stat-value">{{ score }}</span></p>
-                                    <p class="stat-line">LEVEL: <span class="stat-value">{{ level }}</span></p>
-                                    <p class="stat-line">LINES: <span class="stat-value">{{ linesCleared }}</span></p>
                                 </div>
                                 <p class="restart-hint">PRESS ENTER TO RESTART</p>
                             </div>
