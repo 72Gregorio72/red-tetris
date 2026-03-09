@@ -28,10 +28,29 @@ export function useMultiplayer() {
 			multiplayerStore.removeOpponent(playerId);
 		});
 
-		on('game:start', ({ seed }: { seed: string }) => {
+		on('game:start', ({ seed }: { seed: string; round: number; totalRounds: number }) => {
 			multiplayerStore.setGameSeed(seed);
+			multiplayerStore.gameFinished = false;
+			multiplayerStore.gameWinner = null;
+			multiplayerStore.normalGameOver = false;
+			multiplayerStore.normalGameWinner = null;
 			gameStore.setStatus('playing');
 			router.push('/multiplayer');
+		});
+
+		on('game:round_update', ({ round, totalRounds, scores }: { round: number; totalRounds: number; scores: Record<string, number> }) => {
+			multiplayerStore.currentRound = round;
+			multiplayerStore.totalRounds = totalRounds;
+			multiplayerStore.playerScores = scores;
+			// Clear round-end overlay when the new round actually starts
+			multiplayerStore.roundEndInfo = null;
+		});
+
+		on('game:finished', ({ winner, scores }: { winner: { id: string; name: string; score: number } | null; scores: Record<string, number> }) => {
+			multiplayerStore.gameFinished = true;
+			multiplayerStore.gameWinner = winner;
+			multiplayerStore.playerScores = scores;
+			gameStore.setStatus('finished');
 		});
 
 		on('game:opponent_grid', ({ playerId, grid }) => {
@@ -42,8 +61,14 @@ export function useMultiplayer() {
 			multiplayerStore.setOpponentPiece(playerId, cells);
 		});
 
-		on('game:over', () => {
+		on('game:over', ({ winner }: { winner: { id: string; name: string; score: number } | null }) => {
+			multiplayerStore.normalGameOver = true;
+			multiplayerStore.normalGameWinner = winner;
 			gameStore.setStatus('finished');
+		});
+
+		on('game:round_end', (data: any) => {
+			multiplayerStore.roundEndInfo = data;
 		});
 
 		on('player:registered', (player) => {
@@ -61,9 +86,12 @@ export function useMultiplayer() {
 		off('room:players_updated');
 		off('room:player_left');
 		off('game:start');
+		off('game:round_update');
+		off('game:finished');
 		off('game:opponent_grid');
 		off('game:opponent_piece');
 		off('game:over');
+		off('game:round_end');
 		off('player:registered');
 		off('game:attack');
 	}
@@ -103,6 +131,10 @@ export function useMultiplayer() {
 	function registerPlayer(name: string) {
 		emit('player:register', { name });
 	}
+
+	function setPlatformerMode(isEnabled: boolean) {
+		emit('game:toggle_platformer', { enabled: isEnabled });
+	}
 		
 	return { 
 		registerListeners,
@@ -116,5 +148,6 @@ export function useMultiplayer() {
 		startGame,
 		fetchRooms,
 		registerPlayer,
+		setPlatformerMode
 	};
 }

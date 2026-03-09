@@ -17,6 +17,7 @@ const { player } = storeToRefs(playerStore);
 
 const playerName = ref('');
 const newRoomName = ref('');
+const platformerMode = ref(false);
 
 const pressedLog = ref< 'log' | null >(null);
 const pressedCreate = ref< 'create' | null >(null);
@@ -75,6 +76,7 @@ function toggleReady() {
 }
 
 function startGame() {
+  multiplayer.setPlatformerMode(platformerMode.value);
   multiplayer.startGame();
 }
 </script>
@@ -193,6 +195,10 @@ function startGame() {
         >
           Start Game
         </button>
+		<label class="checkbox-label">
+          <input type="checkbox" v-model="platformerMode" />
+          Platformer Vs Tetris Mode
+        </label>
         <button @click="multiplayer.leaveRoom()">Leave Room</button>
       </div>
     </div>
@@ -516,5 +522,20 @@ button:disabled {
   margin: 0.25rem 0;
   background: #333;
   border-radius: 4px;
+}
+
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  cursor: pointer;
+  color: #fff;
+}
+
+.checkbox-label input[type='checkbox'] {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
 }
 </style>

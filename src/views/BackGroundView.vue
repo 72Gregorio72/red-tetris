@@ -49,10 +49,33 @@ function moveBlocksDown() {
   });
 }
 
+function moveBlocksRandomly() {
+  for (const block of blocks.value) {
+	const move = Math.random();
+	if (move < 0.1 && block.x > 0) {
+	  block.x -= 1; // sposta a sinistra
+	} else if (move > 0.9 && block.x < GRID_COLS - TETROMINOS[block.type].shape[0].length) {
+	  block.x += 1; // sposta a destra
+	}
+  }
+}
+
+function rotateBlocksRandomly() {
+  for (const block of blocks.value) {
+	if (Math.random() < 0.05) {
+	  const shape = TETROMINOS[block.type].shape;
+	  const rotatedShape = shape[0].map((_, i) => shape.map(row => row[i]).reverse());
+	  TETROMINOS[block.type].shape = rotatedShape;
+	}
+  }
+}
+
 onMounted(() => {
   spawnBlock();
   intervalId = window.setInterval(() => {
     moveBlocksDown();
+	moveBlocksRandomly();
+	rotateBlocksRandomly();
     if (Math.random() < 0.25 || blocks.value.length === 0) {
       spawnBlock();
     }

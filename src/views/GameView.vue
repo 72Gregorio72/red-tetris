@@ -1,11 +1,19 @@
 <script setup lang="ts">
-import Player from '../Classes/Player/Player.vue';
+import SinglePlayer from '../Classes/Player/SinglePlayer.vue';
 </script>
 
 <template>
 	<div class="game-container">
-		<Player />
+		<SinglePlayer />
 	</div>
 </template>
 
-<style></style>
+<style scoped>
+.game-container {
+	display: flex;
+	justify-content: center;
+	align-items: flex-start;
+	padding: 20px;
+	min-height: 100vh;
+}
+</style>

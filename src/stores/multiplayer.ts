@@ -30,6 +30,13 @@ export const useMultiplayerStore = defineStore('multiplayer', () => {
 
   const isInRoom = computed(() => currentRoom.value !== null);
 
+  const platformerMode = computed(() => {
+	if (!currentRoom.value) return false;
+	const hasAnyPlatformer = currentRoom.value.players.some(p => p.isPlatformer);
+	const hasAnyTetris = currentRoom.value.players.some(p => !p.isPlatformer);
+	return hasAnyPlatformer && hasAnyTetris;
+  });
+
   const isAlive = computed(() => {
 	if (!currentRoom.value) return false;
 	const player = currentRoom.value.players.find(p => p.id === currentRoom.value?.host?.id);
@@ -44,6 +51,32 @@ export const useMultiplayerStore = defineStore('multiplayer', () => {
   const myGameState = ref<IGameState | null>(null);
   const opponentsState = ref<{ id: string, state: IGameState }[]>([]);
   const myDisplayGrid = ref<number[][] | null>(null);
+
+  // Round & score tracking for platformer mode
+  const currentRound = ref(0);
+  const totalRounds = ref(0);
+  const playerScores = ref<Record<string, number>>({});
+  const gameFinished = ref(false);
+  const gameWinner = ref<{ id: string; name: string; score: number } | null>(null);
+  const myPlatformerScore = ref(0);
+  const INITIAL_BOMBS = 3;
+  const myBombs = ref(INITIAL_BOMBS);
+
+  // Normal tetris game over state
+  const normalGameOver = ref(false);
+  const normalGameWinner = ref<{ id: string; name: string; score: number } | null>(null);
+
+  // Round-end transition info
+  const roundEndInfo = ref<{
+    round: number;
+    nextRound: number;
+    totalRounds: number;
+    reason: string;
+    newPlatformer: { id: string; name: string };
+    newTetris: { id: string; name: string };
+    scores: Record<string, number>;
+  } | null>(null);
+  
 
   const isHost = computed(() => {
     return (playerId: string) => currentRoom.value?.host?.id === playerId;
@@ -117,6 +150,17 @@ export const useMultiplayerStore = defineStore('multiplayer', () => {
     opponentsState.value = [];
 	charPos.value = null;
 
+	currentRound.value = 0;
+	totalRounds.value = 0;
+	playerScores.value = {};
+	gameFinished.value = false;
+	gameWinner.value = null;
+	myPlatformerScore.value = 0;
+	myBombs.value = INITIAL_BOMBS;
+	normalGameOver.value = false;
+	normalGameWinner.value = null;
+	roundEndInfo.value = null;
+
 	for (const key in opponents) {
 		delete opponents[key];
 	}
@@ -127,9 +171,11 @@ export const useMultiplayerStore = defineStore('multiplayer', () => {
 
   return {
     currentRoom, rooms, opponents, opponentPieces, gameSeed,
-    isInRoom, isHost, playerCount,
+    isInRoom, isHost, playerCount, platformerMode,
     setRooms, joinRoom, leaveRoom, updatePlayers,
     setOpponentGrid, setOpponentPiece, removeOpponent, setGameSeed, reset,
-	updateBlockPosition, myGameState, opponentsState, isAlive, myDisplayGrid, player, charPos
+	updateBlockPosition, myGameState, opponentsState, isAlive, myDisplayGrid, player, charPos,
+	currentRound, totalRounds, playerScores, gameFinished, gameWinner, myPlatformerScore, myBombs,
+	normalGameOver, normalGameWinner, roundEndInfo
   };
 });

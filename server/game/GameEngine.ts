@@ -52,6 +52,12 @@ export interface PlayerGameState {
 	} | null;
 	isAlive: boolean;
 	pieceIndex: number;
+	platformerChar: {
+		x: number;
+		y: number;
+		jumpTicks: number;
+		isGrounded: boolean;
+	} | null;
 }
 
 export type Action = 'left' | 'right' | 'down' | 'rotate' | 'drop';
@@ -82,6 +88,7 @@ export class GameEngine {
 			currentPiece: null,
 			isAlive: true,
 			pieceIndex: 0,
+			platformerChar: null,
 		};
 	}
 
@@ -164,6 +171,19 @@ export class GameEngine {
     return cleared;
   }
 
+  reset() {
+	this.state = {
+	  grid: createEmptyGrid(),
+	  score: 0,
+	  level: 1,
+	  linesCleared: 0,
+	  currentPiece: null,
+	  isAlive: true,
+	  pieceIndex: 0,
+	  platformerChar: null,
+	};
+  }
+
   applyAction(action: Action): { locked: boolean; linesCleared: number } {
 	console.log(`[GameEngine] Applying action: ${action}`);
     const p = this.state.currentPiece;
@@ -224,6 +244,49 @@ export class GameEngine {
     }
 
     return true;
+  }
+
+  /**
+   * Shift the entire grid down by one row.
+   * The bottom row is destroyed, an empty row is added at the top.
+   * The platformer char is pushed down; dies if pushed off the bottom.
+   * The tetris player keeps the same grid space.
+   * Returns false if the platformer died.
+   */
+  addRisingLine(_gapCount: number = 1): boolean {
+    // Remove the bottom row
+    this.state.grid.pop();
+
+    // Add an empty row at the top
+    this.state.grid.unshift(Array(COLS).fill(0));
+
+    // Push the current tetris piece down to keep it in the same visual position
+    const p = this.state.currentPiece;
+    if (p) {
+      p.row += 1;
+      if (p.row >= ROWS || !this.canPlace(p.row, p.col, p.type, p.rotation)) {
+        // Piece got pushed into an invalid position — lock it and spawn new
+        p.row -= 1;
+      }
+    }
+
+    return true;
+  }
+
+  clearCell(targetX: number, targetY: number) {
+	if (!this.state.platformerChar) return;
+	
+	this.state.grid[targetY][targetX] = 0;
+	// If the current piece occupies this cell, also clear it from the piece
+	const p = this.state.currentPiece;
+	if (p) {
+		const cells = this.getCells(p.row, p.col, p.type, p.rotation);
+		for (const [r, c] of cells) {
+			if (r === targetY && c === targetX) {
+				this.state.grid[r][c] = 0;
+			}
+		}
+	}
   }
 
   getGridWithPiece(): number[][] {
