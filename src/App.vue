@@ -11,6 +11,18 @@ import BackGroundView from './views/BackGroundView.vue';
   </back-ground-view>
 </template>
 
-<style scoped>
+<style>
+
+@font-face {
+  font-family: 'PixelFont';
+  src: url('/asset/font/lower-pixel.regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+*, *::before, *::after {
+  font-family: 'PixelFont', sans-serif;
+}
 
 </style>

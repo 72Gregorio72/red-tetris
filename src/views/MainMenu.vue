@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router';
-import Logo from '@/Style/Logo.vue';
 import Buttons from '../Style/Buttons.vue';
 
 </script>
 
 <template>
-	<div class="main-menu-page">
-		<Buttons class="menu-container" />
+	<div class="main-menu-page">	
+		<div class="menu-container">
+			<img src="/asset/menuHolder.png" alt="Menu Holder" class="menu-holder-image" />
+			<Buttons class="menu-buttons" />
+		</div>
 	</div>
 </template>
 
@@ -24,14 +25,27 @@ import Buttons from '../Style/Buttons.vue';
 }
 
 .menu-container {
-	background-image: url("../../public/asset/menuHolder.png");
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
 	width: 24%;
-	height: 55%;
-	padding-bottom: 30px;
+	max-width: 360px;
+}
+
+.menu-holder-image {
+	display: block;
+	width: 130%;
+	height: auto;
+}
+
+.menu-buttons {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 }
 
 
