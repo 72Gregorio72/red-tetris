@@ -6,7 +6,7 @@ const COLS = 10;
 const SHAPES: Record<PieceType, number[][][]> = {
 	I: [
 		[[0, 0], [0, 1], [0, 2], [0, 3]],
-		[[0, 0], [1, 0], [2, 0], [3, 0]],
+		[[-1, 2], [0, 2], [1, 2], [2, 2]],
 	],
 	O: [
 		[[0, 0], [0, 1], [1, 0], [1, 1]],
@@ -214,8 +214,19 @@ export class GameEngine {
       case 'rotate': {
         const rotations = SHAPES[p.type].length;
         const newRot = (p.rotation + 1) % rotations;
-        if (this.canPlace(p.row, p.col, p.type, newRot)) {
-          p.rotation = newRot;
+        // Try normal rotation, then wall kicks (shift left/right/down)
+        const kicks: [number, number][] = [
+          [0, 0], [0, -1], [0, 1], [0, -2], [0, 2], [1, 0],
+        ];
+        let kicked = false;
+        for (const [dr, dc] of kicks) {
+          if (this.canPlace(p.row + dr, p.col + dc, p.type, newRot)) {
+            p.row += dr;
+            p.col += dc;
+            p.rotation = newRot;
+            kicked = true;
+            break;
+          }
         }
         return { locked: false, linesCleared: 0 };
       }
@@ -293,6 +304,21 @@ export class GameEngine {
     const gridCopy = this.state.grid.map(row => [...row]);
     const p = this.state.currentPiece;
     if (p) {
+      // Draw ghost (drop shadow) first — code 9
+      let ghostRow = p.row;
+      while (this.canPlace(ghostRow + 1, p.col, p.type, p.rotation)) {
+        ghostRow++;
+      }
+      if (ghostRow !== p.row) {
+        const ghostCells = this.getCells(ghostRow, p.col, p.type, p.rotation);
+        for (const [r, c] of ghostCells) {
+          if (r >= 0 && r < ROWS && c >= 0 && c < COLS && gridCopy[r][c] === 0) {
+            gridCopy[r][c] = 9;
+          }
+        }
+      }
+
+      // Draw actual piece on top
       const cells = this.getCells(p.row, p.col, p.type, p.rotation);
       const code = PIECE_CODES[p.type];
       for (const [r, c] of cells) {

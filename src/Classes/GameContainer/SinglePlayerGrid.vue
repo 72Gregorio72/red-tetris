@@ -1,6 +1,7 @@
 <script setup lang="ts">
 	import { computed } from 'vue';
 	import { useSingleplayerStore } from '../../stores/singleplayer';
+	import type { PieceType } from '../../../server/game/PieceGenerator';
 
 	const store = useSingleplayerStore();
 
@@ -13,9 +14,43 @@
 	const linesCleared = computed(() => store.linesCleared);
 	const gameOver = computed(() => store.gameOver);
 
+	// Piece shapes for preview rendering (first rotation only)
+	const PREVIEW_SHAPES: Record<PieceType, [number, number][]> = {
+		I: [[0,0],[0,1],[0,2],[0,3]],
+		O: [[0,0],[0,1],[1,0],[1,1]],
+		T: [[0,0],[0,1],[0,2],[1,1]],
+		S: [[0,1],[0,2],[1,0],[1,1]],
+		Z: [[0,0],[0,1],[1,1],[1,2]],
+		J: [[0,0],[1,0],[2,0],[2,1]],
+		L: [[0,1],[1,1],[2,0],[2,1]],
+	};
+
+	const PIECE_CODES: Record<PieceType, number> = {
+		I: 1, O: 2, T: 3, S: 4, Z: 5, J: 6, L: 7,
+	};
+
+	// Build a mini grid (4x4) for each preview piece
+	function buildPreviewGrid(type: PieceType): number[][] {
+		const g: number[][] = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+		const cells = PREVIEW_SHAPES[type];
+		const code = PIECE_CODES[type];
+		cells.forEach(cell => {
+			g[cell[0]]![cell[1]!] = code;
+		});
+		return g;
+	}
+
+	const previewGrids = computed(() => {
+		return store.nextPieces.map(type => ({
+			type,
+			grid: buildPreviewGrid(type),
+		}));
+	});
+
 	const getBlockClass = (cellValue: number) => {
 		if (cellValue === 0) return 'empty';
 		if (cellValue === 8) return 'penalty';
+		if (cellValue === 9) return 'ghost';
 		return `piece-${cellValue}`;
 	};
 </script>
@@ -83,11 +118,31 @@
                                 <h1 class="game-over-text">GAME OVER</h1>
                                 <div class="game-over-stats">
                                     <p class="stat-line">SCORE: <span class="stat-value">{{ score }}</span></p>
-                                    <p class="stat-line">LEVEL: <span class="stat-value">{{ level }}</span></p>
-                                    <p class="stat-line">LINES: <span class="stat-value">{{ linesCleared }}</span></p>
                                 </div>
                                 <p class="restart-hint">PRESS ENTER TO RESTART</p>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Next pieces preview panel -->
+                <div class="preview-panel">
+                    <span class="hud-label">NEXT</span>
+                    <div class="hud-divider"></div>
+                    <div 
+                        v-for="(preview, idx) in previewGrids" 
+                        :key="'preview-' + idx"
+                        class="preview-piece"
+                    >
+                        <div class="preview-grid">
+                            <template v-for="(row, rIdx) in preview.grid" :key="'pr-' + idx + '-' + rIdx">
+                                <div
+                                    v-for="(cell, cIdx) in row"
+                                    :key="'pc-' + idx + '-' + rIdx + '-' + cIdx"
+                                    class="preview-block"
+                                    :class="getBlockClass(cell)"
+                                ></div>
+                            </template>
                         </div>
                     </div>
                 </div>
@@ -300,6 +355,11 @@
 	.piece-5 { background-color: #BB0000; border: 2px solid #EE0000; box-shadow: inset 2px 2px 0 #FF4444, inset -2px -2px 0 #880000; }
 	.piece-6 { background-color: #0000BB; border: 2px solid #0000EE; box-shadow: inset 2px 2px 0 #4444FF, inset -2px -2px 0 #000088; }
 	.piece-7 { background-color: #BB7700; border: 2px solid #EE9900; box-shadow: inset 2px 2px 0 #FFBB44, inset -2px -2px 0 #885500; }
+	.ghost {
+		background-color: rgba(255, 255, 255, 0.06);
+		border: 2px dashed rgba(255, 255, 255, 0.25);
+		box-shadow: none;
+	}
 
 	/* UI Game Over */
 	.game-over-overlay {
@@ -390,5 +450,43 @@
 	.bottom-screws {
 		display: flex;
 		gap: 10px;
+	}
+
+	/* ===== NEXT PIECES PREVIEW PANEL ===== */
+	.preview-panel {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 8px;
+		background: #1e1a22;
+		border: 3px solid #3a3340;
+		padding: 10px 12px;
+		min-width: 80px;
+		box-shadow:
+			inset 2px 2px 0 #141018,
+			inset -2px -2px 0 #2a2630;
+	}
+
+	.preview-piece {
+		padding: 6px 0;
+	}
+
+	.preview-grid {
+		display: grid;
+		grid-template-columns: repeat(4, 16px);
+		grid-template-rows: repeat(4, 16px);
+		gap: 0;
+	}
+
+	.preview-block {
+		width: 16px;
+		height: 16px;
+		border: 1px solid rgba(255, 255, 255, 0.02);
+		box-sizing: border-box;
+	}
+
+	.preview-block.empty {
+		background-color: transparent;
+		border-color: transparent;
 	}
 </style>

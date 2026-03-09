@@ -70,7 +70,7 @@
         window.addEventListener('keyup', handleKeyUp);
         startPlatformerLoop();
         
-        socket.value?.on('game:state_update', (roomState: Array<{ id: string; state: any; displayGrid: number[][]; platformerScore?: number; bombs?: number }>) => {
+        socket.value?.on('game:state_update', (roomState: Array<{ id: string; state: any; displayGrid: number[][]; platformerScore?: number; bombs?: number; nextPieces?: string[] }>) => {
             const myData = roomState.find(p => p.id === socket.value?.id);
             if (myData && socket.value?.id) {
                 multiplayerStore.myGameState = myData.state; 
@@ -81,6 +81,9 @@
 				}
 				if (myData.bombs !== undefined) {
 					multiplayerStore.myBombs = myData.bombs;
+				}
+				if (myData.nextPieces) {
+					multiplayerStore.myNextPieces = myData.nextPieces;
 				}
             }
             

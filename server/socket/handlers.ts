@@ -168,7 +168,8 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 
 			const initialState = room.players.map((p: IPlayer) => {
 				const engine = playerEngines.get(p.id);
-				return { id: p.id, state: engine?.state, displayGrid: engine?.getGridWithPiece() };
+				const generator = playerGenerators.get(p.id);
+				return { id: p.id, state: engine?.state, displayGrid: engine?.getGridWithPiece(), nextPieces: generator?.peek(3) ?? [] };
 			});
 			io.to(room.id).emit('game:state_update', initialState);
 
@@ -270,10 +271,12 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 
 		const initialState = room.players.map(p => {
             const engine = playerEngines.get(p.id);
+            const generator = playerGenerators.get(p.id);
             return {
                 id: p.id,
                 state: engine?.state,
-                displayGrid: engine?.getGridWithPiece() 
+                displayGrid: engine?.getGridWithPiece(),
+                nextPieces: generator?.peek(3) ?? []
             };
         });
         io.to(room.id).emit('game:state_update', initialState);
@@ -584,6 +587,10 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		// Reset rising line timer for new round
 		roomLastRisingLine.set(room.id, Date.now());
 
+		// Generate a fresh seed for the new round so pieces differ each round
+		const newSeed = Math.random().toString(36).substring(2, 15);
+		roomSeed.set(room.id, newSeed);
+
 		const isShared = roomMode.get(room.id) === 'shared';
 
 		if (isShared) {
@@ -595,10 +602,9 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 			sharedEngine.state.isAlive = true;
 
 			// Fresh generator for the new round
-			const generator = new PieceGenerator(roomSeed.get(room.id));
+			const generator = new PieceGenerator(newSeed);
 			sharedEngine.spawnPiece(generator.next());
 
-			// Set up platformer char for the new platformer (was tetris)
 			sharedEngine.state.platformerChar = {
 				x: 5,
 				y: 10,
@@ -618,10 +624,8 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 			});
 		} else {
 			// Normal mode: each player has their own engine and generator (same seed)
-			const currentSeed = roomSeed.get(room.id);
-
 			room.players.forEach((p: IPlayer) => {
-				const generator = new PieceGenerator(currentSeed);
+				const generator = new PieceGenerator(newSeed);
 				const engine = new GameEngine();
 				engine.spawnPiece(generator.next());
 
@@ -754,6 +758,10 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		playerBombs.set(currentTetris.id, INITIAL_BOMBS);
 		roomLastRisingLine.set(room.id, Date.now());
 
+		// Generate a fresh seed for the new round so pieces differ each round
+		const newSeed = Math.random().toString(36).substring(2, 15);
+		roomSeed.set(room.id, newSeed);
+
 		const isShared = roomMode.get(room.id) === 'shared';
 
 		if (isShared) {
@@ -763,7 +771,7 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 			sharedEngine.reset();
 			sharedEngine.state.isAlive = true;
 
-			const generator = new PieceGenerator(roomSeed.get(room.id));
+			const generator = new PieceGenerator(newSeed);
 			sharedEngine.spawnPiece(generator.next());
 
 			sharedEngine.state.platformerChar = {
@@ -783,10 +791,8 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 				playerLastPlatformerFall.set(p.id, Date.now());
 			});
 		} else {
-			const currentSeed = roomSeed.get(room.id);
-
 			room.players.forEach((p: IPlayer) => {
-				const generator = new PieceGenerator(currentSeed);
+				const generator = new PieceGenerator(newSeed);
 				const engine = new GameEngine();
 				engine.spawnPiece(generator.next());
 
@@ -950,10 +956,12 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		}
 		const roomState = room.players.map(p => {
 			const engine = playerEngines.get(p.id);
+			const generator = playerGenerators.get(p.id);
 			return {
 				id: p.id,
 				state: engine?.state,
-				displayGrid: engine?.getGridWithPiece()
+				displayGrid: engine?.getGridWithPiece(),
+				nextPieces: generator?.peek(3) ?? []
 			};
 		});
 		io.to(room.id).emit('game:state_update', roomState);
@@ -1106,23 +1114,28 @@ function broadcastRoomState(io: Server, room: any) {
         const sharedEngine = anyPlayer ? playerEngines.get(anyPlayer.id) : undefined;
         const sharedState = sharedEngine?.state ?? null;
         const sharedGrid = sharedEngine?.getGridWithPiece() ?? null;
+        const sharedGenerator = anyPlayer ? playerGenerators.get(anyPlayer.id) : undefined;
+        const sharedNextPieces = sharedGenerator?.peek(3) ?? [];
         const roomState = room.players.map((p: IPlayer) => ({
             id: p.id,
             state: sharedState,
             displayGrid: sharedGrid,
             platformerScore: playerPlatformerScore.get(p.id) || 0,
-            bombs: playerBombs.get(p.id) ?? 0
+            bombs: playerBombs.get(p.id) ?? 0,
+            nextPieces: sharedNextPieces
         }));
         io.to(room.id).emit('game:state_update', roomState);
     } else {
         const roomState = room.players.map((p: IPlayer) => {
             const engine = playerEngines.get(p.id);
+            const generator = playerGenerators.get(p.id);
             return {
                 id: p.id,
                 state: engine?.state,
                 displayGrid: engine?.getGridWithPiece(),
                 platformerScore: playerPlatformerScore.get(p.id) || 0,
-                bombs: playerBombs.get(p.id) ?? 0
+                bombs: playerBombs.get(p.id) ?? 0,
+                nextPieces: generator?.peek(3) ?? []
             };
         });
         io.to(room.id).emit('game:state_update', roomState);

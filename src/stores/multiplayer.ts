@@ -76,6 +76,9 @@ export const useMultiplayerStore = defineStore('multiplayer', () => {
     newTetris: { id: string; name: string };
     scores: Record<string, number>;
   } | null>(null);
+
+  // Next pieces preview
+  const myNextPieces = ref<string[]>([]);
   
 
   const isHost = computed(() => {
@@ -160,6 +163,7 @@ export const useMultiplayerStore = defineStore('multiplayer', () => {
 	normalGameOver.value = false;
 	normalGameWinner.value = null;
 	roundEndInfo.value = null;
+	myNextPieces.value = [];
 
 	for (const key in opponents) {
 		delete opponents[key];
@@ -176,6 +180,6 @@ export const useMultiplayerStore = defineStore('multiplayer', () => {
     setOpponentGrid, setOpponentPiece, removeOpponent, setGameSeed, reset,
 	updateBlockPosition, myGameState, opponentsState, isAlive, myDisplayGrid, player, charPos,
 	currentRound, totalRounds, playerScores, gameFinished, gameWinner, myPlatformerScore, myBombs,
-	normalGameOver, normalGameWinner, roundEndInfo
+	normalGameOver, normalGameWinner, roundEndInfo, myNextPieces
   };
 });

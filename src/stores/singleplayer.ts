@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { GameEngine, type Action } from '../../server/game/GameEngine';
-import { PieceGenerator } from '../../server/game/PieceGenerator';
+import { PieceGenerator, type PieceType } from '../../server/game/PieceGenerator';
 
 export const useSingleplayerStore = defineStore('singleplayer', () => {
   const engine = ref<GameEngine | null>(null);
@@ -14,6 +14,7 @@ export const useSingleplayerStore = defineStore('singleplayer', () => {
   const gameOver = ref(false);
   const gameLoopId = ref<number | null>(null);
   const lastFallTime = ref(0);
+  const nextPieces = ref<PieceType[]>([]);
 
   const isPlaying = computed(() => engine.value !== null && isAlive.value && !gameOver.value);
 
@@ -43,6 +44,9 @@ export const useSingleplayerStore = defineStore('singleplayer', () => {
     level.value = engine.value.state.level;
     linesCleared.value = engine.value.state.linesCleared;
     isAlive.value = engine.value.state.isAlive;
+    if (generator.value) {
+      nextPieces.value = generator.value.peek(3);
+    }
   }
 
   function startGameLoop() {
@@ -115,10 +119,11 @@ export const useSingleplayerStore = defineStore('singleplayer', () => {
     linesCleared.value = 0;
     isAlive.value = true;
     gameOver.value = false;
+    nextPieces.value = [];
   }
 
   return {
-    displayGrid, score, level, linesCleared, isAlive, gameOver, isPlaying,
+    displayGrid, score, level, linesCleared, isAlive, gameOver, isPlaying, nextPieces,
     startGame, applyAction, restart, reset, stopGameLoop,
   };
 });

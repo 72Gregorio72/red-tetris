@@ -1,6 +1,7 @@
 <script setup lang="ts">
 	import { ref } from 'vue';
 	import BlockTemplate from '../Block/BlockTemplate.vue';
+	import BlockPreview from '../Block/BlockPreview.vue';
 
 	const blocks = ref<{ row: number; col: number }[]>([]);
 	const activeBlockId = ref(0);
@@ -118,6 +119,11 @@
 		return blocks.value.some(b => b.row === 1);
 	}
 
+	function getBlockType(blockMatrix: number[][]) {
+		// Return a unique identifier for the block type
+		return blockMatrix.length;
+	}
+
 </script>
 
 <template>
@@ -155,6 +161,19 @@
 		justify-content: center;
 		background-color: #222;
 		padding: 20px;
+	}
+
+	.BlockPreview {
+		position: absolute;
+		top: 20px;
+		right: -150px;
+		width: 120px;
+		height: 120px;
+		background-color: #333;
+		border: 2px solid #555;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 
 	.grid {
