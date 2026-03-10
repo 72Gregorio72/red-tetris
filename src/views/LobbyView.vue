@@ -284,7 +284,7 @@ function leaveRoom() {
             class="action-icon"
           />
         </button>
-		<label class="checkbox-label">
+		<label v-if="currentRoom.host.id === player?.id" class="checkbox-label">
           <span class="custom-checkbox" :class="{ checked: platformerMode }">
             <span v-if="platformerMode" class="checkmark">✔</span>
           </span>
@@ -614,18 +614,27 @@ button:disabled {
 
 .player-list {
   display: flex;
+  flex-direction: column;
+  align-items: center;
   position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translateX(-50%);
   list-style: none;
-  padding-top: 10rem;
+  padding: 1rem;
+  margin: 0;
+  z-index: 2;
+  gap: 0.7rem;
 }
 
 .player-list li {
-  padding: 1.25rem 3.5rem;
-  margin: 0.5rem 0;
+  padding: 0.8rem 5.5rem;
+  margin: 0;
   background: #33333300;
   border-radius: 8px;
   font-size: 1.4rem;
   position: relative;
+  white-space: nowrap;
 }
 
 .player-list li::before {
@@ -633,8 +642,8 @@ button:disabled {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: -80px;
-  right: -80px;
+  left: -20px;
+  right: -20px;
   border: 1px solid #000;
   border-radius: 8px;
   pointer-events: none;

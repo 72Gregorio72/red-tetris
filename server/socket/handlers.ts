@@ -961,6 +961,8 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 				id: p.id,
 				state: engine?.state,
 				displayGrid: engine?.getGridWithPiece(),
+				platformerScore: playerPlatformerScore.get(p.id) || 0,
+				bombs: playerBombs.get(p.id) ?? 0,
 				nextPieces: generator?.peek(3) ?? []
 			};
 		});
