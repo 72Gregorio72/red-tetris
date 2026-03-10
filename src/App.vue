@@ -2,10 +2,10 @@
 import BackGroundView from './views/BackGroundView.vue';
 import { onMounted, onUnmounted } from 'vue';
 
-const bgMusic1 = new Audio('/asset/music/redTetrisTheme.mp3');
-const bgMusic2 = new Audio('/asset/music/redTetrisTheme.mp3');
+const bgMusic1 = new Audio('/asset/music/Chiptronical.ogg');
+const bgMusic2 = new Audio('/asset/music/Chiptronical.ogg');
 const volume = 0.3;
-const fadeTime = 1;
+const fadeTime = 0.2;
 
 bgMusic1.volume = volume;
 bgMusic2.volume = 0;
