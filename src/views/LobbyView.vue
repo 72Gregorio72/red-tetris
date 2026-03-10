@@ -23,6 +23,14 @@ const pressedLog = ref< 'log' | null >(null);
 const pressedCreate = ref< 'create' | null >(null);
 const pressedRefresh = ref< 'refresh' | null >(null);
 const pressedJoin = ref< string | null >(null);
+const pressedReady = ref< 'ready' | null >(null);
+const pressedNotReady = ref< 'notReady' | null >(null);
+const pressedStart = ref< 'start' | null >(null);
+const pressedLeave = ref< 'leave' | null >(null);
+
+const sfxbutton = new Audio('/asset/music/buttonClick_SFX.wav') 
+
+sfxbutton.volume = 0.5;
 
 onMounted(() => {
 	connect();
@@ -37,7 +45,9 @@ function register(button: 'log' | null = null) {
   if (playerName.value.trim()) {
     if (pressedLog.value) return;
     pressedLog.value = button;
-  
+    sfxbutton.currentTime = 0;
+    sfxbutton.play().catch(() => {});
+
     if (playerName.value.length > 12) {
       alert('Player name must be 12 characters or less.');
       pressedLog.value = null;
@@ -51,27 +61,67 @@ function register(button: 'log' | null = null) {
 
 function createRoom() {
   if (newRoomName.value.trim()) {
+    if (pressedCreate.value) return;
+    pressedCreate.value = 'create';
+    sfxbutton.currentTime = 0;
+    sfxbutton.play().catch(() => {});
     if (newRoomName.value.length > 12) {
       alert('Room name must be 12 characters or less.');
+      pressedCreate.value = null;
       return;
     }
-    multiplayer.createRoom(newRoomName.value.trim());
+    const roomName = newRoomName.value.trim();
     newRoomName.value = '';
+    setTimeout(() => {
+      multiplayer.createRoom(roomName);
+      pressedCreate.value = null;
+    }, 200);
   }
 }
 
 function joinRoom(roomId: string) {
   if (pressedJoin.value) return;
   pressedJoin.value = roomId;
+  sfxbutton.currentTime = 0;
+  sfxbutton.play().catch(() => {});
   setTimeout(() => {
     multiplayer.joinRoom(roomId);
     pressedJoin.value = null;
   }, 200);
 }
 
+function refreshRooms() {
+  if (pressedRefresh.value) return;
+  pressedRefresh.value = 'refresh';
+  sfxbutton.currentTime = 0;
+  sfxbutton.play().catch(() => {});
+  setTimeout(() => {
+    multiplayer.fetchRooms();
+    pressedRefresh.value = null;
+  }, 200);
+}
+
 function toggleReady() {
-  if (player.value) {
-    multiplayer.toggleReady(!player.value.isReady);
+  if (!player.value) return;
+  const goingReady = !player.value.isReady;
+  if (goingReady) {
+    if (pressedReady.value) return;
+    pressedReady.value = 'ready';
+    sfxbutton.currentTime = 0;
+    sfxbutton.play().catch(() => {});
+    setTimeout(() => {
+      multiplayer.toggleReady(true);
+      pressedReady.value = null;
+    }, 200);
+  } else {
+    if (pressedNotReady.value) return;
+    pressedNotReady.value = 'notReady';
+    sfxbutton.currentTime = 0;
+    sfxbutton.play().catch(() => {});
+    setTimeout(() => {
+      multiplayer.toggleReady(false);
+      pressedNotReady.value = null;
+    }, 200);
   }
 }
 
@@ -83,6 +133,26 @@ function startGame() {
 	}
   multiplayer.setPlatformerMode(platformerMode.value);
   multiplayer.startGame();
+  if (pressedStart.value) return;
+  pressedStart.value = 'start';
+  sfxbutton.currentTime = 0;
+  sfxbutton.play().catch(() => {});
+  setTimeout(() => {
+    multiplayer.setPlatformerMode(platformerMode.value);
+    multiplayer.startGame();
+    pressedStart.value = null;
+  }, 200);
+}
+
+function leaveRoom() {
+  if (pressedLeave.value) return;
+  pressedLeave.value = 'leave';
+  sfxbutton.currentTime = 0;
+  sfxbutton.play().catch(() => {});
+  setTimeout(() => {
+    multiplayer.leaveRoom();
+    pressedLeave.value = null;
+  }, 200);
 }
 </script>
 
@@ -98,8 +168,6 @@ function startGame() {
 
         <button
           class="log-button"
-          @mousedown="pressedLog = 'log'"
-          @mouseup="pressedLog = null"
           @click="register('log')"
         >
           <img
@@ -123,8 +191,6 @@ function startGame() {
           </div>
             <button
               class="create-room-button"
-              @mousedown="pressedCreate = 'create'"
-              @mouseup="pressedCreate = null"
               @click="createRoom"
             >
               <img
@@ -144,8 +210,6 @@ function startGame() {
               <button
                 :disabled="room.playerCount >= room.maxPlayers"
                 class="join-button"
-                @mousedown="pressedJoin = room.id"
-                @mouseup="pressedJoin = null"
                 @click="joinRoom(room.id)"
               >
                 <img
@@ -162,9 +226,7 @@ function startGame() {
         </div>
         <button
           class="refresh-button"
-          @mousedown="pressedRefresh = 'refresh'"
-          @mouseup="pressedRefresh = null"
-          @click="multiplayer.fetchRooms()"
+          @click="refreshRooms()"
         >
           <img
             :src="pressedRefresh
@@ -191,20 +253,53 @@ function startGame() {
       </ul>
 
       <div class="room-actions">
-        <button @click="toggleReady">
-          {{ player?.isReady ? 'Not Ready' : 'Ready' }}
+        <button class="ready-button" @click="toggleReady">
+          <img
+            v-if="pressedReady ? true : pressedNotReady ? false : player?.isReady"
+            :src="pressedReady
+              ? '/asset/readyButton/readyButtonPressed.png'
+              : '/asset/readyButton/readyButton.png'"
+            alt="Ready"
+            class="action-icon"
+          />
+          <img
+            v-else
+            :src="pressedNotReady
+              ? '/asset/notReadyButton/notReadyButtonPressed.png'
+              : '/asset/notReadyButton/notReadyButton.png'"
+            alt="Not Ready"
+            class="action-icon"
+          />
         </button>
         <button
           v-if="currentRoom.host.id === player?.id"
+          class="start-game-button"
           @click="startGame"
         >
-          Start Game
+          <img
+            :src="pressedStart
+              ? '/asset/startGameButton/startGameButtonPressed.png'
+              : '/asset/startGameButton/startGameButton.png'"
+            alt="Start Game"
+            class="action-icon"
+          />
         </button>
 		<label class="checkbox-label">
-          <input type="checkbox" v-model="platformerMode" />
+          <span class="custom-checkbox" :class="{ checked: platformerMode }">
+            <span v-if="platformerMode" class="checkmark">✔</span>
+          </span>
+          <input type="checkbox" v-model="platformerMode" class="hidden-checkbox" />
           Platformer Vs Tetris Mode
         </label>
-        <button @click="multiplayer.leaveRoom()">Leave Room</button>
+        <button class="leave-room-button" @click="leaveRoom()">
+          <img
+            :src="pressedLeave
+              ? '/asset/leaveRoomButton/leaveRoomButtonPressed.png'
+              : '/asset/leaveRoomButton/leaveRoomButton.png'"
+            alt="Leave Room"
+            class="action-icon"
+          />
+        </button>
       </div>
     </div>
   </div>
@@ -273,10 +368,10 @@ function startGame() {
 
 .room-title {
   display: flex;
-  position: relative;
-  top: 18%;
-  left: 77%;
-  font-size: 1.5rem;
+  position: absolute;
+  top: 12%;
+  left: 54%;
+  font-size: 3rem;
   color: #d4a030;
   letter-spacing: 2px;
   max-width: 20px;
@@ -518,29 +613,130 @@ button:disabled {
 }
 
 .player-list {
+  display: flex;
+  position: absolute;
   list-style: none;
-  padding: 0;
+  padding-top: 10rem;
 }
 
 .player-list li {
-  padding: 0.5rem;
-  margin: 0.25rem 0;
-  background: #333;
-  border-radius: 4px;
+  padding: 1.25rem 3.5rem;
+  margin: 0.5rem 0;
+  background: #33333300;
+  border-radius: 8px;
+  font-size: 1.4rem;
+  position: relative;
+}
+
+.player-list li::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -80px;
+  right: -80px;
+  border: 1px solid #000;
+  border-radius: 8px;
+  pointer-events: none;
 }
 
 .checkbox-label {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
   padding: 0.5rem;
   cursor: pointer;
-  color: #fff;
+  color: #d4a030;
+  padding-top: 480px;
+  font-size: 1rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  user-select: none;
 }
 
-.checkbox-label input[type='checkbox'] {
-  width: 1rem;
-  height: 1rem;
+.hidden-checkbox {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.custom-checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 2px solid #7a5a3a;
+  border-radius: 4px;
+  background: #1a1a2e;
+  box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.6), 0 0 3px rgba(122, 90, 58, 0.3);
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.custom-checkbox.checked {
+  background: #d4a030;
+  border-color: #d4a030;
+}
+
+.checkmark {
+  color: #1a1a2e;
+  font-size: 15px;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.checkbox-label:hover .custom-checkbox {
+  border-color: #d4a030;
+  box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.6), 0 0 6px rgba(212, 160, 48, 0.3);
+}
+
+.ready-button {
+  display: flex;
+  position:absolute;
+  background: none;
+  border: none;
   cursor: pointer;
+  padding: 0;
+  align-items: center;
+  top: 54%;
+  left: 39%;
+}
+
+.start-game-button {
+  display: flex;
+  position: absolute;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  align-items: center;
+  top: 54%;
+  left: 47%;
+}
+
+.leave-room-button {
+  display: flex;
+  position: absolute;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  align-items: center;
+  top: 54%;
+  left: 55%;
+}
+
+.action-icon {
+  width: 130px;
+  height: auto;
+}
+
+.ready-button:hover .action-icon,
+.start-game-button:hover .action-icon,
+.leave-room-button:hover .action-icon {
+  opacity: 0.8;
 }
 </style>

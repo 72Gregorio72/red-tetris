@@ -88,8 +88,8 @@ export const useSingleplayerStore = defineStore('singleplayer', () => {
     }
   }
 
-  function applyAction(action: Action) {
-    if (!engine.value || !generator.value || !isAlive.value) return;
+  function applyAction(action: Action): { locked: boolean; linesCleared: number } {
+    if (!engine.value || !generator.value || !isAlive.value) return { locked: false, linesCleared: 0 };
 
     const result = engine.value.applyAction(action);
     if (result.locked) {
@@ -101,6 +101,7 @@ export const useSingleplayerStore = defineStore('singleplayer', () => {
       }
     }
     updateDisplayGrid();
+    return { locked: result.locked, linesCleared: result.linesCleared };
   }
 
   function restart() {
