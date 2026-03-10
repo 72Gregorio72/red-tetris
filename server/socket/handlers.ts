@@ -929,6 +929,8 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		if (player.isPlatformer) 
 			handlePlatformerMovement(engine, action);
 		else{
+			if (action === 'drop' && roomMode.get(room.id) === 'shared')
+				return;
 			const result = engine.applyAction(action);
 
 			if (action === 'left' || action === 'right')
@@ -1011,8 +1013,6 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 	function checkPlatformerCollision(engine: any) {
 		const char = engine.state.platformerChar;
 		if (!char) return;
-		// if (checkCollision(engine, char.x, char.y))
-		// 	engine.state.isAlive = false;
 	}
 
 	function jump() {
@@ -1033,7 +1033,7 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		if (gridY < 0) return true;
 
 		const grid = engine.getGridWithPiece();
-		return grid[gridY][gridX] === 0;
+		return grid[gridY][gridX] === 0 || grid[gridY][gridX] === 9;
 	}
 
 	function isOnGround(engine: any, char: any): boolean {
@@ -1053,7 +1053,7 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 			if (gridY >= 20) return true;
 			if (gridY < 0) return false;
 
-			return grid[gridY][gridX] !== 0;
+			return grid[gridY][gridX] !== 0 && grid[gridY][gridX] !== 9;
 		});
 	}
 
