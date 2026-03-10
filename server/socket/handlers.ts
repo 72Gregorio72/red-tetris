@@ -1031,7 +1031,7 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 		if (gridY < 0) return true;
 
 		const grid = engine.getGridWithPiece();
-		return grid[gridY][gridX] === 0;
+		return grid[gridY][gridX] === 0 || grid[gridY][gridX] === 9;
 	}
 
 	function isOnGround(engine: any, char: any): boolean {
@@ -1051,7 +1051,7 @@ export function registerSocketHandlers(io: Server, socket: Socket) {
 			if (gridY >= 20) return true;
 			if (gridY < 0) return false;
 
-			return grid[gridY][gridX] !== 0;
+			return grid[gridY][gridX] !== 0 && grid[gridY][gridX] !== 9;
 		});
 	}
 
