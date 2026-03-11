@@ -1,6 +1,7 @@
-import { createRouter, createWebHashHistory } from 'vue-router';
+import { createRouter, createWebHistory } from 'vue-router';
 import LobbyView from '../views/LobbyView.vue';
 import SinglePlayer from '../Classes/Player/SinglePlayer.vue';
+import GameView from '../views/GameView.vue';
 import MultiplayerView from '../views/MultiplayerView.vue';
 import GameUrlView from '../views/GameUrlView.vue';
 import MainMenu from '@/views/MainMenu.vue';
@@ -12,9 +13,9 @@ const routes = [
     component: MainMenu,
   },
   {
-    path: '/singleplayer',
-    name: 'singleplayer',
-    component: SinglePlayer,
+    path: '/game',
+    name: 'game',
+    component: GameView,
   },
   {
     path: '/multiplayer',
@@ -36,7 +37,7 @@ const routes = [
 
 
 const router = createRouter({
-  history: createWebHashHistory(),
+  history: createWebHistory(),
   routes,
 });
 
