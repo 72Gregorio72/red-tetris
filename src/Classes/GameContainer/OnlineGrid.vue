@@ -110,7 +110,6 @@
 		}));
 	});
 
-	// ===== BOMB EXPLOSION =====
 	const explosions = ref<{ id: number; x: number; y: number }[]>([]);
 	let expId = 0;
 

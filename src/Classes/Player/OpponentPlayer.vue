@@ -17,7 +17,7 @@ const opponentGrids = computed(() => {
         return {
             playerId: opp.id,
             playerName: playerInfo?.name || 'Unknown',
-            grid: opp.displayGrid || emptyGrid, // Usiamo la griglia già unita dal server!
+            grid: opp.displayGrid || emptyGrid,
             isAlive: opp.state?.isAlive ?? true
         };
     });
