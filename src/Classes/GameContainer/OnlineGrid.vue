@@ -1,5 +1,5 @@
 <script setup lang="ts">
-	import { computed } from 'vue';
+	import { computed, ref, watch } from 'vue';
 	import { useMultiplayerStore } from '../../stores/multiplayer';
 	import { useSocket } from '../../composables/useSocket';
 
@@ -109,6 +109,21 @@
 			grid: buildPreviewGrid(type),
 		}));
 	});
+
+	const explosions = ref<{ id: number; x: number; y: number }[]>([]);
+	let expId = 0;
+
+	watch(() => multiplayerStore.myBombs, (now, before) => {
+		if (before !== undefined && now < before) {
+			const char = multiplayerStore.myGameState?.platformerChar;
+			if (!char) return;
+			const id = ++expId;
+			explosions.value.push({ id, x: char.x, y: char.y });
+			setTimeout(() => {
+				explosions.value = explosions.value.filter(e => e.id !== id);
+			}, 450);
+		}
+	});
 </script>
 
 <template>
@@ -202,6 +217,24 @@
                                         <div class="eye"></div>
                                         <div class="eye"></div>
                                     </div>
+                                </div>
+                            </template>
+
+                            <!-- Bomb explosion -->
+                            <template v-for="exp in explosions" :key="'exp-' + exp.id">
+                                <div
+                                    v-for="dy in [-1, 0, 1]" 
+                                    :key="'ey' + dy"
+                                >
+                                    <div
+                                        v-for="dx in [-1, 0, 1]"
+                                        :key="'ex' + dx"
+                                        class="boom-cell"
+                                        :class="{ 'boom-center': dx === 0 && dy === 0 }"
+                                        :style="{
+                                            transform: `translate(${(exp.x + dx) * 30}px, ${(exp.y + dy) * 30}px)`
+                                        }"
+                                    ></div>
                                 </div>
                             </template>
                         </div>
@@ -782,5 +815,39 @@
 	.preview-block.empty {
 		background-color: transparent;
 		border-color: transparent;
+	}
+
+	/* ===== BOMB EXPLOSION ===== */
+	.boom-cell {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 30px;
+		height: 30px;
+		z-index: 150;
+		pointer-events: none;
+		background: #fff;
+		border: 2px solid #ff0;
+		animation: boom 0.4s steps(4) forwards;
+	}
+
+	.boom-center {
+		animation: boomCenter 0.4s steps(4) forwards;
+	}
+
+	@keyframes boom {
+		0%   { background: #fff; border-color: #ff0; opacity: 1; }
+		25%  { background: #fa0; border-color: #f80; opacity: 1; }
+		50%  { background: #e40; border-color: #a20; opacity: 0.7; }
+		75%  { background: #600; border-color: #400; opacity: 0.3; }
+		100% { opacity: 0; }
+	}
+
+	@keyframes boomCenter {
+		0%   { background: #fff; border-color: #fff; opacity: 1; }
+		25%  { background: #ff0; border-color: #fa0; opacity: 1; }
+		50%  { background: #f80; border-color: #e40; opacity: 0.8; }
+		75%  { background: #a20; border-color: #600; opacity: 0.4; }
+		100% { opacity: 0; }
 	}
 </style>
