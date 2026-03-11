@@ -1,336 +1,289 @@
 import type { PieceType } from './PieceGenerator';
+import { Piece } from './Piece';
 
 const ROWS = 20;
 const COLS = 10;
 
-const SHAPES: Record<PieceType, number[][][]> = {
-	I: [
-		[[0, 0], [0, 1], [0, 2], [0, 3]],
-		[[-1, 2], [0, 2], [1, 2], [2, 2]],
-	],
-	O: [
-		[[0, 0], [0, 1], [1, 0], [1, 1]],
-	],
-	T: [
-		[[0, 0], [0, 1], [0, 2], [1, 1]],
-		[[0, 1], [1, 0], [1, 1], [2, 1]],
-		[[1, 0], [1, 1], [1, 2], [0, 1]],
-		[[0, 0], [1, 0], [2, 0], [1, 1]],
-	],
-	S: [
-		[[0, 1], [0, 2], [1, 0], [1, 1]],
-		[[0, 0], [1, 0], [1, 1], [2, 1]],
-	],
-	Z: [
-		[[0, 0], [0, 1], [1, 1], [1, 2]],
-		[[0, 1], [1, 0], [1, 1], [2, 0]],
-	],
-	J: [
-		[[0, 0], [1, 0], [2, 0], [2, 1]],
-		[[0, 0], [0, 1], [0, 2], [1, 0]],
-		[[0, 0], [0, 1], [1, 1], [2, 1]],
-		[[0, 2], [1, 0], [1, 1], [1, 2]],
-	],
-	L: [
-		[[0, 1], [1, 1], [2, 0], [2, 1]],
-		[[0, 0], [1, 0], [1, 1], [1, 2]],
-		[[0, 0], [0, 1], [1, 0], [2, 0]],
-		[[0, 0], [0, 1], [0, 2], [1, 2]],
-	],
-};
-
 export interface PlayerGameState {
-	grid: number[][];
-	score: number;
-	level: number;
-	linesCleared: number;
-	currentPiece: {
-		type: PieceType;
-		row: number;
-		col: number;
-		rotation: number;
-	} | null;
-	isAlive: boolean;
-	pieceIndex: number;
-	platformerChar: {
-		x: number;
-		y: number;
-		jumpTicks: number;
-		isGrounded: boolean;
-	} | null;
+    grid: number[][];
+    score: number;
+    level: number;
+    linesCleared: number;
+    currentPiece: {
+        type: PieceType;
+        row: number;
+        col: number;
+        rotation: number;
+    } | null;
+    isAlive: boolean;
+    pieceIndex: number;
+    platformerChar: {
+        x: number;
+        y: number;
+        vx: number;
+        vy: number;
+        jumpTicks: number;
+        isGrounded: boolean;
+        shape: { dx: number; dy: number }[];
+    } | null;
 }
 
 export type Action = 'left' | 'right' | 'down' | 'rotate' | 'drop';
 
 function createEmptyGrid(): number[][] {
-	return Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+    return Array.from({ length: ROWS }, () => Array(COLS).fill(0));
 }
 
-const PIECE_CODES: Record<PieceType, number> = {
-	I: 1,
-	O: 2,
-	T: 3,
-	S: 4,
-	Z: 5,
-	J: 6,
-	L: 7,
-};
-
 export class GameEngine {
-	state: PlayerGameState;
+    state: PlayerGameState;
+    private currentPieceObj: Piece | null = null;
 
-	constructor() {
-		this.state = {
-			grid: createEmptyGrid(),
-			score: 0,
-			level: 1,
-			linesCleared: 0,
-			currentPiece: null,
-			isAlive: true,
-			pieceIndex: 0,
-			platformerChar: null,
-		};
-	}
-
-  spawnPiece(type: PieceType): boolean {
-    const piece = {
-      type,
-      row: 0,
-      col: Math.floor(COLS / 2) - 1,
-      rotation: 0,
-    };
-
-	if (!this.canPlace(piece.row, piece.col, piece.type, piece.rotation)) {
-      this.state.isAlive = false;
-      return false;
-    } 
-
-    this.state.currentPiece = piece;
-    this.state.pieceIndex++;
-    return true;
-  }
-
-	private getCells(row: number, col: number, type: PieceType, rotation: number): number[][] {
-		const rotations = SHAPES[type];
-		const shape = rotations[rotation % rotations.length];
-		return shape.map(([dr, dc]) => [row + dr, col + dc]);
-	}
-
-	private canPlace(row: number, col: number, type: PieceType, rotation: number): boolean {
-		const cells = this.getCells(row, col, type, rotation);
-		for (const [r, c] of cells) {
-		if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return false;
-		if (this.state.grid[r][c] !== 0) return false;
-		}
-		return true;
-	}
-
-	private lockPiece(): number {
-    const p = this.state.currentPiece;
-    if (!p) return 0;
-
-    const cells = this.getCells(p.row, p.col, p.type, p.rotation);
-    const code = PIECE_CODES[p.type];
-
-    for (const [r, c] of cells) {
-      if (r >= 0 && r < ROWS && c >= 0 && c < COLS) {
-        this.state.grid[r][c] = code;
-      }
+    constructor() {
+        this.state = {
+            grid: createEmptyGrid(),
+            score: 0,
+            level: 1,
+            linesCleared: 0,
+            currentPiece: null,
+            isAlive: true,
+            pieceIndex: 0,
+            platformerChar: null,
+        };
     }
 
-    this.state.currentPiece = null;
+    spawnPiece(type: PieceType): boolean {
+        const piece = new Piece(type);
 
-    const cleared = this.clearLines();
-    return cleared;
-  }
-
-  private clearLines(): number {
-    const newGrid: number[][] = [];
-    let cleared = 0;
-
-    for (let r = 0; r < ROWS; r++) {
-      if (this.state.grid[r].every(cell => cell !== 0)) {
-        cleared++;
-      } else {
-        newGrid.push(this.state.grid[r]);
-      }
-    }
-
-    while (newGrid.length < ROWS) {
-      newGrid.unshift(Array(COLS).fill(0));
-    }
-
-    this.state.grid = newGrid;
-    this.state.linesCleared += cleared;
-
-    const points = [0, 100, 300, 500, 800];
-    this.state.score += (points[cleared] || 0) * this.state.level;
-
-    this.state.level = Math.floor(this.state.linesCleared / 10) + 1;
-
-    return cleared;
-  }
-
-  reset() {
-	this.state = {
-	  grid: createEmptyGrid(),
-	  score: 0,
-	  level: 1,
-	  linesCleared: 0,
-	  currentPiece: null,
-	  isAlive: true,
-	  pieceIndex: 0,
-	  platformerChar: null,
-	};
-  }
-
-  applyAction(action: Action): { locked: boolean; linesCleared: number } {
-	console.log(`[GameEngine] Applying action: ${action}`);
-    const p = this.state.currentPiece;
-    if (!p || !this.state.isAlive) return { locked: false, linesCleared: 0 };
-
-    switch (action) {
-      case 'left': {
-        if (this.canPlace(p.row, p.col - 1, p.type, p.rotation)) {
-          p.col--;
+        if (!this.canPlace(piece.row, piece.col, piece)) {
+            this.state.isAlive = false;
+            return false;
         }
-        return { locked: false, linesCleared: 0 };
-      }
-      case 'right': {
-        if (this.canPlace(p.row, p.col + 1, p.type, p.rotation)) {
-          p.col++;
-        }
-        return { locked: false, linesCleared: 0 };
-      }
-      case 'down': {
-        if (this.canPlace(p.row + 1, p.col, p.type, p.rotation)) {
-          p.row++;
-          return { locked: false, linesCleared: 0 };
+
+        this.currentPieceObj = piece;
+        this.syncPieceToState();
+        this.state.pieceIndex++;
+        return true;
+    }
+
+    private syncPieceToState(): void {
+        if (this.currentPieceObj) {
+            this.state.currentPiece = {
+                type: this.currentPieceObj.type,
+                row: this.currentPieceObj.row,
+                col: this.currentPieceObj.col,
+                rotation: this.currentPieceObj.rotation,
+            };
         } else {
-          const cleared = this.lockPiece();
-          return { locked: true, linesCleared: cleared };
+            this.state.currentPiece = null;
         }
-      }
-      case 'rotate': {
-        const rotations = SHAPES[p.type].length;
-        const newRot = (p.rotation + 1) % rotations;
-        // Try normal rotation, then wall kicks (shift left/right/down)
-        const kicks: [number, number][] = [
-          [0, 0], [0, -1], [0, 1], [0, -2], [0, 2], [1, 0],
-        ];
-        let kicked = false;
-        for (const [dr, dc] of kicks) {
-          if (this.canPlace(p.row + dr, p.col + dc, p.type, newRot)) {
-            p.row += dr;
-            p.col += dc;
-            p.rotation = newRot;
-            kicked = true;
-            break;
-          }
-        }
-        return { locked: false, linesCleared: 0 };
-      }
-      case 'drop': {
-        while (this.canPlace(p.row + 1, p.col, p.type, p.rotation)) {
-          p.row++;
-        }
-        const cleared = this.lockPiece();
-        return { locked: true, linesCleared: cleared };
-      }
-    }
-  }
-
-  addPenaltyLines(count: number): boolean {
-    this.state.grid.splice(0, count);
-
-    for (let i = 0; i < count; i++) {
-      const row = Array(COLS).fill(8);
-      this.state.grid.push(row);
     }
 
-    const p = this.state.currentPiece;
-    if (p && !this.canPlace(p.row, p.col, p.type, p.rotation)) {
-      this.state.isAlive = false;
-      return false;
+    private getCells(row: number, col: number, piece: Piece, rotation?: number): number[][] {
+        return piece.getCells(row, col, rotation);
     }
 
-    return true;
-  }
-
-  /**
-   * Shift the entire grid down by one row.
-   * The bottom row is destroyed, an empty row is added at the top.
-   * The platformer char is pushed down; dies if pushed off the bottom.
-   * The tetris player keeps the same grid space.
-   * Returns false if the platformer died.
-   */
-  addRisingLine(_gapCount: number = 1): boolean {
-    // Remove the bottom row
-    this.state.grid.pop();
-
-    // Add an empty row at the top
-    this.state.grid.unshift(Array(COLS).fill(0));
-
-    // Push the current tetris piece down to keep it in the same visual position
-    const p = this.state.currentPiece;
-    if (p) {
-      p.row += 1;
-      if (p.row >= ROWS || !this.canPlace(p.row, p.col, p.type, p.rotation)) {
-        // Piece got pushed into an invalid position — lock it and spawn new
-        p.row -= 1;
-      }
-    }
-
-    return true;
-  }
-
-  clearCell(targetX: number, targetY: number) {
-	if (!this.state.platformerChar) return;
-	
-	this.state.grid[targetY][targetX] = 0;
-	// If the current piece occupies this cell, also clear it from the piece
-	const p = this.state.currentPiece;
-	if (p) {
-		const cells = this.getCells(p.row, p.col, p.type, p.rotation);
-		for (const [r, c] of cells) {
-			if (r === targetY && c === targetX) {
-				this.state.grid[r][c] = 0;
-			}
-		}
-	}
-  }
-
-  getGridWithPiece(): number[][] {
-    const gridCopy = this.state.grid.map(row => [...row]);
-    const p = this.state.currentPiece;
-    if (p) {
-      // Draw ghost (drop shadow) first — code 9
-      let ghostRow = p.row;
-      while (this.canPlace(ghostRow + 1, p.col, p.type, p.rotation)) {
-        ghostRow++;
-      }
-      if (ghostRow !== p.row) {
-        const ghostCells = this.getCells(ghostRow, p.col, p.type, p.rotation);
-        for (const [r, c] of ghostCells) {
-          if (r >= 0 && r < ROWS && c >= 0 && c < COLS && gridCopy[r][c] === 0) {
-            gridCopy[r][c] = 9;
-          }
+    private canPlace(row: number, col: number, piece: Piece, rotation?: number): boolean {
+        const cells = this.getCells(row, col, piece, rotation);
+        for (const [r, c] of cells) {
+            if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return false;
+            if (this.state.grid[r][c] !== 0) return false;
         }
-      }
-
-      // Draw actual piece on top
-      const cells = this.getCells(p.row, p.col, p.type, p.rotation);
-      const code = PIECE_CODES[p.type];
-      for (const [r, c] of cells) {
-        if (r >= 0 && r < ROWS && c >= 0 && c < COLS) {
-          gridCopy[r][c] = code;
-        }
-      }
+        return true;
     }
-    return gridCopy;
-  }
 
-  getFallInterval(): number {
-    return Math.max(100, 1000 - (this.state.level - 1) * 80);
-  }
+    private lockPiece(): number {
+        const piece = this.currentPieceObj;
+        if (!piece) return 0;
+
+        const cells = piece.getCells();
+        const code = piece.getCode();
+
+        for (const [r, c] of cells) {
+            if (r >= 0 && r < ROWS && c >= 0 && c < COLS) {
+                this.state.grid[r][c] = code;
+            }
+        }
+
+        this.currentPieceObj = null;
+        this.syncPieceToState();
+
+        const cleared = this.clearLines();
+        return cleared;
+    }
+
+    private clearLines(): number {
+        const newGrid: number[][] = [];
+        let cleared = 0;
+
+        for (let r = 0; r < ROWS; r++) {
+            if (this.state.grid[r].every(cell => cell !== 0)) {
+                cleared++;
+            } else {
+                newGrid.push(this.state.grid[r]);
+            }
+        }
+
+        while (newGrid.length < ROWS) {
+            newGrid.unshift(Array(COLS).fill(0));
+        }
+
+        this.state.grid = newGrid;
+        this.state.linesCleared += cleared;
+
+        const points = [0, 100, 300, 500, 800];
+        this.state.score += (points[cleared] || 0) * this.state.level;
+
+        this.state.level = Math.floor(this.state.linesCleared / 10) + 1;
+
+        return cleared;
+    }
+
+    reset(): void {
+        this.state = {
+            grid: createEmptyGrid(),
+            score: 0,
+            level: 1,
+            linesCleared: 0,
+            currentPiece: null,
+            isAlive: true,
+            pieceIndex: 0,
+            platformerChar: null,
+        };
+        this.currentPieceObj = null;
+    }
+
+    applyAction(action: Action): { locked: boolean; linesCleared: number } {
+        console.log(`[GameEngine] Applying action: ${action}`);
+        const piece = this.currentPieceObj;
+        if (!piece || !this.state.isAlive) return { locked: false, linesCleared: 0 };
+
+        switch (action) {
+            case 'left': {
+                if (this.canPlace(piece.row, piece.col - 1, piece)) {
+                    piece.move(0, -1);
+                }
+                this.syncPieceToState();
+                return { locked: false, linesCleared: 0 };
+            }
+            case 'right': {
+                if (this.canPlace(piece.row, piece.col + 1, piece)) {
+                    piece.move(0, 1);
+                }
+                this.syncPieceToState();
+                return { locked: false, linesCleared: 0 };
+            }
+            case 'down': {
+                if (this.canPlace(piece.row + 1, piece.col, piece)) {
+                    piece.move(1, 0);
+                    this.syncPieceToState();
+                    return { locked: false, linesCleared: 0 };
+                } else {
+                    const cleared = this.lockPiece();
+                    return { locked: true, linesCleared: cleared };
+                }
+            }
+            case 'rotate': {
+                const newRot = piece.nextRotation();
+                const kicks: [number, number][] = [
+                    [0, 0], [0, -1], [0, 1], [0, -2], [0, 2], [1, 0],
+                ];
+                for (const [dr, dc] of kicks) {
+                    if (this.canPlace(piece.row + dr, piece.col + dc, piece, newRot)) {
+                        piece.move(dr, dc);
+                        piece.setRotation(newRot);
+                        break;
+                    }
+                }
+                this.syncPieceToState();
+                return { locked: false, linesCleared: 0 };
+            }
+            case 'drop': {
+                while (this.canPlace(piece.row + 1, piece.col, piece)) {
+                    piece.move(1, 0);
+                }
+                const cleared = this.lockPiece();
+                return { locked: true, linesCleared: cleared };
+            }
+        }
+    }
+
+    addPenaltyLines(count: number): boolean {
+        this.state.grid.splice(0, count);
+
+        for (let i = 0; i < count; i++) {
+            const row = Array(COLS).fill(8);
+            this.state.grid.push(row);
+        }
+
+        const piece = this.currentPieceObj;
+        if (piece && !this.canPlace(piece.row, piece.col, piece)) {
+            this.state.isAlive = false;
+            return false;
+        }
+
+        return true;
+    }
+
+    addRisingLine(_gapCount: number = 1): boolean {
+        this.state.grid.pop();
+        this.state.grid.unshift(Array(COLS).fill(0));
+
+        const piece = this.currentPieceObj;
+        if (piece) {
+            piece.move(1, 0);
+            if (piece.row >= ROWS || !this.canPlace(piece.row, piece.col, piece)) {
+                piece.move(-1, 0);
+            }
+            this.syncPieceToState();
+        }
+
+        return true;
+    }
+
+    clearCell(targetX: number, targetY: number): void {
+        if (!this.state.platformerChar) return;
+
+        this.state.grid[targetY][targetX] = 0;
+        const piece = this.currentPieceObj;
+        if (piece) {
+            const cells = piece.getCells();
+            for (const [r, c] of cells) {
+                if (r === targetY && c === targetX) {
+                    this.state.grid[r][c] = 0;
+                }
+            }
+        }
+    }
+
+    getGridWithPiece(): number[][] {
+        const gridCopy = this.state.grid.map(row => [...row]);
+        const piece = this.currentPieceObj;
+        if (piece) {
+            let ghostRow = piece.row;
+            while (this.canPlace(ghostRow + 1, piece.col, piece)) {
+                ghostRow++;
+            }
+            if (ghostRow !== piece.row) {
+                const ghostCells = piece.getCells(ghostRow, piece.col);
+                for (const [r, c] of ghostCells) {
+                    if (r >= 0 && r < ROWS && c >= 0 && c < COLS && gridCopy[r][c] === 0) {
+                        gridCopy[r][c] = 9;
+                    }
+                }
+            }
+
+            const cells = piece.getCells();
+            const code = piece.getCode();
+            for (const [r, c] of cells) {
+                if (r >= 0 && r < ROWS && c >= 0 && c < COLS) {
+                    gridCopy[r][c] = code;
+                }
+            }
+        }
+        return gridCopy;
+    }
+
+    getFallInterval(): number {
+        return Math.max(100, 1000 - (this.state.level - 1) * 80);
+    }
 }

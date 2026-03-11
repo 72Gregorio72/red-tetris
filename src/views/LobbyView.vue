@@ -1,16 +1,17 @@
-<!-- filepath: /home/ftersill/Desktop/red-tetris/src/views/LobbyView.vue -->
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { useSocket } from '../composables/useSocket';
 import { useMultiplayer } from '../composables/useMultiplayer';
 import { useMultiplayerStore } from '../stores/multiplayer';
 import { usePlayerStore } from '../stores/player';
 import { storeToRefs } from 'pinia';
+import { useRouter } from 'vue-router';
 
 const { connect } = useSocket();
 const multiplayer = useMultiplayer();
 const multiplayerStore = useMultiplayerStore();
 const playerStore = usePlayerStore();
+const router = useRouter();
 
 const { rooms, currentRoom } = storeToRefs(multiplayerStore);
 const { player } = storeToRefs(playerStore);
@@ -32,13 +33,26 @@ const sfxbutton = new Audio('/asset/music/buttonClick_SFX.wav')
 
 sfxbutton.volume = 0.5;
 
+// When we join a room, redirect to the URL-based view
+watch(currentRoom, (newRoom) => {
+  if (newRoom && player.value) {
+    router.push({
+      name: 'game-url',
+      params: {
+        room: newRoom.name,
+        playerName: player.value.name,
+      },
+    });
+  }
+});
+
 onMounted(() => {
-	connect();
-	multiplayer.registerListeners();
+    connect();
+    multiplayer.registerListeners();
 });
 
 onUnmounted(() => {
-	multiplayer.unregisterListeners();
+    multiplayer.unregisterListeners();
 });
 
 function register(button: 'log' | null = null) {
@@ -54,9 +68,9 @@ function register(button: 'log' | null = null) {
       return;
     }
     setTimeout(() => {
-  		multiplayer.registerPlayer(playerName.value.trim());
-	  }, 200);
-	}
+          multiplayer.registerPlayer(playerName.value.trim());
+      }, 200);
+    }
 }
 
 function createRoom() {
@@ -126,11 +140,11 @@ function toggleReady() {
 }
 
 function startGame() {
-	if (!currentRoom.value) return;
-	if (currentRoom.value.players.length < 2) {
-		alert('At least 2 players are required to start the game.');
-		return;
-	}
+    if (!currentRoom.value) return;
+    if (currentRoom.value.players.length < 2) {
+        alert('At least 2 players are required to start the game.');
+        return;
+    }
   multiplayer.setPlatformerMode(platformerMode.value);
   multiplayer.startGame();
   if (pressedStart.value) return;
@@ -284,7 +298,7 @@ function leaveRoom() {
             class="action-icon"
           />
         </button>
-		<label class="checkbox-label">
+        <label class="checkbox-label">
           <span class="custom-checkbox" :class="{ checked: platformerMode }">
             <span v-if="platformerMode" class="checkmark">✔</span>
           </span>
@@ -395,35 +409,35 @@ input {
 }
 
 .enter-image {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	width: 100%;
-	height: auto;
-	z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: auto;
+    z-index: 1;
 }
 
 .lobby-image {
   display: flex;
-	flex-direction: column;
-	align-items: center;
+    flex-direction: column;
+    align-items: center;
   position: absolute;
-	justify-content: center;
-	width: 30%;
+    justify-content: center;
+    width: 30%;
   right: 35%;
-	height: auto;
-	z-index: -1;
+    height: auto;
+    z-index: -1;
 }
 
 .register-section {
   display: flex;
-	flex-direction: column;
-	justify-content: center;
-	align-items: center;
-	width: 100%;
-	position: relative;
-	max-width: 520px;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    position: relative;
+    max-width: 520px;
 }
 
 .log-button {
@@ -599,7 +613,6 @@ button:disabled {
   position: relative;
 }
 
-/* before crea uno pseudo elemento prima di caricare l`elemento effettivo senza l`uso di html capite eh*/
 .room-item::before {
   content: '';
   position: absolute;
