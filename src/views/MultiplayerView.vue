@@ -44,6 +44,7 @@ function backToLobby() {
     multiplayerStore.normalGameWinner = null;
     isReadyForRematch.value = false;
     multiplayer.leaveRoom();
+    router.push({ name: 'home' });
 }
 
 function toggleRematchReady() {

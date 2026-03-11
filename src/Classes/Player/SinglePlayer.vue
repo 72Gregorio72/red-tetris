@@ -2,7 +2,7 @@
     import { onMounted, onUnmounted } from 'vue';
     import SinglePlayerGrid from '../GameContainer/SinglePlayerGrid.vue';
     import { useSingleplayerStore } from '../../stores/singleplayer';
-    import type { Action } from '../../../server/game/GameEngine';
+    import type { Action } from '../../game/types';
 
     const store = useSingleplayerStore();
 
