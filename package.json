@@ -8,6 +8,7 @@
     "dev:client": "vite",
     "dev:server": "tsx --watch server/index.ts",
     "build": "run-p type-check \"build-only {@}\" --",
+    "start": "npm run build && node --import tsx server/index.ts",
     "preview": "vite preview",
     "test:unit": "vitest",
     "coverage": "vitest run --coverage",
