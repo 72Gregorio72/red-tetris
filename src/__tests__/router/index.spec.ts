@@ -26,7 +26,12 @@ describe('Router', () => {
     expect(route!.name).toBe('multiplayer');
   });
 
-  it('has exactly 4 routes', () => {
-    expect(router.getRoutes().length).toBe(4);
+  it('has a game-url route at /:room/:playerName', () => {
+    const route = router.getRoutes().find(r => r.name === 'game-url');
+    expect(route).toBeDefined();
+  });
+
+  it('has exactly 5 routes', () => {
+    expect(router.getRoutes().length).toBe(5);
   });
 });

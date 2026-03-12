@@ -20,7 +20,7 @@ function startGame(path: string, button: 'play' | 'multi') {
 }
 
 </script>
-<!-- FARE BOTTONE LOG SU FILE GIUSTO IMMAGINE GIA FATTE E METTERE IL COLORE DEL TESTO GIALLINO A TEMA -->
+
 <template>
 	<div class="button-container">
 		<button class="play-button" @click="startGame('/game', 'play')">

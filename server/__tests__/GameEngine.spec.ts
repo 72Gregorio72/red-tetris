@@ -106,20 +106,19 @@ describe('GameEngine', () => {
     });
 
     it('does not move left past left wall', () => {
-      engine.state.currentPiece!.col = 0;
+      // Move piece all the way to the left wall using the public API
+      for (let i = 0; i < 10; i++) engine.applyAction('left');
+      const colAtWall = engine.state.currentPiece!.col;
       engine.applyAction('left');
-      expect(engine.state.currentPiece!.col).toBe(0);
+      expect(engine.state.currentPiece!.col).toBe(colAtWall);
     });
 
     it('does not move right past right wall', () => {
-      // Move the T piece to the right edge
-      engine.state.currentPiece!.col = 8; // T piece occupies cols +0, +1, +2 → max col 7 to fit
-      // Actually the T shape at rotation 0 is [[0,0],[0,1],[0,2],[1,1]], so cols 8,9,10 → 10 is out
-      // Let's just set it to col 7 so it occupies 7,8,9
-      engine.state.currentPiece!.col = 7;
+      // Move piece all the way to the right wall using the public API
+      for (let i = 0; i < 10; i++) engine.applyAction('right');
+      const colAtWall = engine.state.currentPiece!.col;
       engine.applyAction('right');
-      // Should still be at 7 since 7+3 = 10 which is the edge
-      expect(engine.state.currentPiece!.col).toBe(7);
+      expect(engine.state.currentPiece!.col).toBe(colAtWall);
     });
 
     it('returns no-op for actions when no current piece', () => {
@@ -174,10 +173,10 @@ describe('GameEngine', () => {
 
     it('does not rotate when all kick positions fail', () => {
       engine.spawnPiece('T');
-      engine.state.currentPiece!.row = 10;
-      engine.state.currentPiece!.col = 4;
+      // Move piece down to row 10 using the public API
+      for (let i = 0; i < 10; i++) engine.applyAction('down');
+      // T piece at row 10, col 4, rotation 0: cells (10,4),(10,5),(10,6),(11,5)
       // Surround the piece with blocks to prevent any rotation
-      // Fill area around it
       for (let r = 9; r <= 12; r++) {
         for (let c = 2; c <= 7; c++) {
           engine.state.grid[r][c] = 1;
@@ -385,7 +384,9 @@ describe('GameEngine', () => {
 
     it('adjusts current piece row down', () => {
       engine.spawnPiece('T');
-      engine.state.currentPiece!.row = 5;
+      // Move piece down to row 5 using the public API
+      for (let i = 0; i < 5; i++) engine.applyAction('down');
+      expect(engine.state.currentPiece!.row).toBe(5);
       engine.addRisingLine();
       expect(engine.state.currentPiece!.row).toBe(6);
     });

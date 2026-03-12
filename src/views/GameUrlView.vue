@@ -266,7 +266,7 @@ onUnmounted(() => {
             class="action-icon"
           />
         </button>
-        <label class="checkbox-label">
+        <label class="checkbox-label" v-if="currentRoom?.host?.id === player?.id">
           <span class="custom-checkbox" :class="{ checked: platformerMode }">
             <span v-if="platformerMode" class="checkmark">✔</span>
           </span>
@@ -374,19 +374,27 @@ onUnmounted(() => {
 .room-title {
   display: flex;
   position: absolute;
-  top: 12%;
+  top: 14%;
   left: 54%;
-  font-size: 3rem;
+  font-size: 2rem;
   color: #d4a030;
   letter-spacing: 2px;
-  max-width: 20px;
+  max-width: 8ch;
+  overflow-wrap: break-word;
+  word-break: break-all;
+  line-height: 1.2;
 }
 
 .player-list {
   display: flex;
+  flex-direction: column;
+  align-items: center;
   position: absolute;
+  left: 45%;
+  transform: translateX(-15%);
   list-style: none;
   padding-top: 10rem;
+  gap: 0.3rem;
 }
 
 .player-list li {
@@ -394,7 +402,7 @@ onUnmounted(() => {
   margin: 0.5rem 0;
   background: #33333300;
   border-radius: 8px;
-  font-size: 1.4rem;
+  font-size: 1.1rem;
   position: relative;
 }
 
@@ -404,9 +412,9 @@ onUnmounted(() => {
   top: 0;
   bottom: 0;
   left: -80px;
-  right: -80px;
+  right: -50px;
   border: 1px solid #000;
-  border-radius: 8px;
+  border-radius: 80px;
   pointer-events: none;
 }
 

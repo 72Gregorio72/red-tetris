@@ -38,7 +38,6 @@ function getRoomId(socket: ReturnType<typeof createMockSocket>): string {
   return call ? call[1].id : '';
 }
 
-// Helper: set up two players in a room, return { socket1, socket2, io, roomId }
 function setupTwoPlayerRoom(io: ReturnType<typeof createMockIO>, id1: string, id2: string, name1 = 'P1', name2 = 'P2') {
   const s1 = createMockSocket(id1);
   const s2 = createMockSocket(id2);
